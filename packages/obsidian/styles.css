@@ -1,0 +1,1526 @@
+/* I Have a Rock — uses Obsidian's theme variables so light and dark themes both work. */
+
+.rock-view {
+	/*
+	 * Annotation colors in the panel are muted to one strength, so a list of
+	 * many colors stays calm. PDF pages keep Zotero's own colors.
+	 */
+	--rock-tint-strength: 100%;
+	/*
+	 * The icon buttons along the top (collect, pin, sort, search) sit evenly:
+	 * each as wide as an Obsidian icon button, one gap apart, the last one at
+	 * the right edge, centered in the 36px first row.
+	 */
+	--rock-icon-button: calc(var(--icon-m) + 2 * var(--size-2-3));
+	--rock-icon-gap: var(--size-2-1);
+	/* The magnifier's right, past the content's edge. */
+	--rock-icon-right: calc(-1 * var(--size-4-1));
+	--rock-icon-top: calc((36px - var(--icon-m) - 2 * var(--size-2-2)) / 2);
+	/* The page is laid over the note's list during the transition between them. */
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+	padding: 0 var(--size-4-3);
+}
+
+/* Stays at the bottom of the panel, even when the content scrolls. */
+.rock-footer {
+	position: sticky;
+	bottom: 0;
+	margin-top: auto;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-4-2);
+	padding: var(--size-4-1) 0;
+	border-top: 1px solid var(--background-modifier-border);
+	background-color: var(--background-secondary);
+	z-index: 2;
+}
+
+/* --- Navigation bar: "‹ note" back on a paper; pin and search ------------- */
+
+.rock-nav {
+	position: sticky;
+	top: 0;
+	z-index: 3;
+	display: flex;
+	align-items: center;
+	gap: var(--rock-icon-gap);
+	min-height: 36px;
+	margin: 0 calc(-1 * var(--size-4-3));
+	/* Room on the right for the floating magnifier: its buttons end a gap before it. */
+	padding: var(--size-2-2) calc(var(--size-4-3) + var(--rock-icon-right) + var(--rock-icon-button) + var(--rock-icon-gap)) var(--size-2-2)
+		var(--size-4-2);
+	background-color: var(--background-secondary);
+}
+
+.rock-nav-leading {
+	flex: 1;
+	min-width: 0;
+}
+
+.rock-nav-back {
+	display: inline-flex;
+	align-items: center;
+	max-width: 100%;
+	padding: var(--size-2-1) var(--size-2-2) var(--size-2-1) 0;
+	background-color: transparent;
+	box-shadow: none;
+	color: var(--text-accent);
+	font-size: var(--font-ui-small);
+}
+
+.rock-nav-back:hover {
+	background-color: transparent;
+	color: var(--text-accent-hover);
+}
+
+.rock-nav-back-icon {
+	display: inline-flex;
+}
+
+.rock-nav-back-text {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.rock-nav-pin.is-active {
+	color: var(--text-accent);
+}
+
+/* A card's tooltip: when it was made, then (with tips on) what can be done, a line each. */
+.tooltip.rock-tooltip {
+	white-space: pre-line;
+}
+
+/* The order choices, unfolded at the top to the left of the buttons, as search is; one per line. */
+.rock-sort-row {
+	padding: var(--size-2-3) 60px 0 0;
+}
+
+.rock-sort-choices.rock-tabs {
+	flex-direction: column;
+	transform-origin: top right;
+}
+
+.rock-sort-choices .rock-tab {
+	justify-content: flex-start;
+	font-size: var(--font-ui-small);
+}
+
+.rock-sort-icon {
+	display: inline-flex;
+}
+
+/* Which way time runs, faintly after it. */
+.rock-sort-detail {
+	color: var(--text-faint);
+}
+
+.rock-tab.is-active .rock-sort-detail {
+	color: var(--text-muted);
+}
+
+.rock-sort-icon svg {
+	width: 14px;
+	height: 14px;
+}
+
+.rock-nav-collect:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+/* --- Collect into a note: types and colors to gather ---------------------- */
+
+.rock-collect-options {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--size-2-3);
+}
+
+/* A type, chosen or not. (Outranks Obsidian's button style, as the color dots.) */
+button.rock-collect-chip:not(.clickable-icon) {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-2-2);
+	height: auto;
+	padding: var(--size-2-2) var(--size-4-2);
+	border-radius: var(--radius-l);
+	background-color: transparent;
+	box-shadow: inset 0 0 0 1px var(--background-modifier-border);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	cursor: var(--cursor);
+}
+
+button.rock-collect-chip:not(.clickable-icon):hover {
+	background-color: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+button.rock-collect-chip.is-active:not(.clickable-icon) {
+	background-color: hsla(var(--interactive-accent-hsl), 0.12);
+	box-shadow: inset 0 0 0 1.5px var(--interactive-accent);
+	color: var(--text-accent);
+}
+
+.rock-collect-chip-icon {
+	display: inline-flex;
+}
+
+.rock-collect-chip-icon svg {
+	width: 14px;
+	height: 14px;
+}
+
+.rock-collect-chip-count {
+	color: var(--text-faint);
+	font-variant-numeric: tabular-nums;
+}
+
+.rock-collect-chip.is-active .rock-collect-chip-count {
+	color: inherit;
+	opacity: 0.7;
+}
+
+/* Chosen colors ringed; the others faded. */
+.rock-collect-options button.rock-color-dot:not(.clickable-icon):not(.is-active) {
+	opacity: 0.35;
+}
+
+.rock-collect-name {
+	width: 100%;
+	min-width: 16em;
+}
+
+.rock-collect-hint {
+	padding-top: var(--size-4-2);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.rock-status {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-1);
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+.rock-status-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background-color: var(--text-faint);
+}
+
+.rock-status-dot.is-online {
+	background-color: var(--color-green);
+}
+
+.rock-status-dot.is-connecting {
+	background-color: var(--color-yellow);
+}
+
+.rock-status-dot.is-offline,
+.rock-status-dot.is-api-disabled {
+	background-color: var(--color-red);
+}
+
+.rock-banner {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--size-4-2);
+	padding: var(--size-4-2) var(--size-4-3);
+	border-radius: var(--radius-m);
+	background-color: var(--background-modifier-error);
+	color: var(--text-normal);
+	font-size: var(--font-ui-small);
+}
+
+/* Search */
+
+/* The magnifier, floating over the right end of the first row; it stays put while scrolling. */
+.rock-search-anchor {
+	position: sticky;
+	top: 0;
+	z-index: 4;
+	height: 0;
+	/* Takes no room: cancel the column gap after it. */
+	margin-bottom: calc(-1 * var(--size-4-2));
+}
+
+.rock-search-button {
+	position: absolute;
+	top: var(--rock-icon-top);
+	right: var(--rock-icon-right);
+	/* Readable over the list when it scrolls beneath. */
+	background-color: var(--background-secondary);
+}
+
+/*
+ * Sorting or the bibliography, to the magnifier's left over the first row
+ * below search: opening search pushes it down a step, with the rest.
+ */
+.rock-tool-anchor {
+	position: sticky;
+	top: 0;
+	z-index: 4;
+	height: 0;
+	margin-bottom: calc(-1 * var(--size-4-2));
+}
+
+.rock-tool-button {
+	position: absolute;
+	top: var(--rock-icon-top);
+	/* One button and a gap left of the magnifier. */
+	right: calc(var(--rock-icon-right) + var(--rock-icon-button) + var(--rock-icon-gap));
+	background-color: var(--background-secondary);
+}
+
+.rock-sort-button.is-open {
+	background-color: var(--background-modifier-hover);
+}
+
+/* Opened, the field unfolds to the magnifier's left in a row of its own. */
+.rock-search {
+	position: relative;
+	padding: var(--size-2-3) 32px 0 0;
+}
+
+/* Room for the sort button too, where it is shown. */
+.rock-view.has-tool .rock-nav {
+	padding-right: calc(var(--size-4-3) + var(--rock-icon-right) + 2 * (var(--rock-icon-button) + var(--rock-icon-gap)));
+}
+
+.rock-search-input {
+	width: 100%;
+	transform-origin: right center;
+}
+
+.rock-results {
+	display: flex;
+	flex-direction: column;
+	max-height: 50vh;
+	overflow-y: auto;
+}
+
+.rock-results:not(:empty) {
+	margin-top: var(--size-4-1);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background-color: var(--background-primary);
+}
+
+.rock-result {
+	padding: var(--size-4-2) var(--size-4-3);
+	cursor: var(--cursor);
+	border-bottom: var(--border-width) solid var(--background-modifier-border);
+}
+
+.rock-result:last-child {
+	border-bottom: none;
+}
+
+.rock-result:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.rock-result-title {
+	font-size: var(--font-ui-small);
+	color: var(--text-normal);
+}
+
+.rock-result-meta,
+.rock-results-note {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+.rock-results-note {
+	padding: var(--size-4-2) var(--size-4-3);
+}
+
+/* Paper page */
+
+.rock-paper {
+	padding-bottom: var(--size-4-1);
+}
+
+.rock-paper-title {
+	font-weight: var(--font-semibold);
+	line-height: var(--line-height-tight);
+}
+
+/* The paper as this level's large title. */
+.rock-page-title {
+	font-size: 1.3em;
+	font-weight: var(--font-bold);
+	letter-spacing: -0.01em;
+}
+
+.rock-paper-title.is-draggable {
+	margin: 0 calc(-1 * var(--size-2-2));
+	padding: var(--size-2-1) var(--size-2-2);
+	border-radius: var(--radius-s);
+	cursor: grab;
+}
+
+/* Selected (shown by the glass lens): Space previews the paper. */
+.rock-paper-title.is-draggable:focus {
+	outline: none;
+}
+
+.rock-paper-meta {
+	margin-top: var(--size-2-1);
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+}
+
+.rock-note-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-4-1);
+	margin-top: var(--size-4-2);
+}
+
+.rock-note-actions button {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-4-1);
+	font-size: var(--font-ui-smaller);
+}
+
+.rock-button-icon {
+	display: inline-flex;
+}
+
+.rock-button-icon svg {
+	width: var(--icon-xs);
+	height: var(--icon-xs);
+}
+
+/* Tabs: a segmented control. */
+
+.rock-tabs {
+	display: flex;
+	padding: 2px;
+	border-radius: var(--radius-m);
+	background-color: var(--background-modifier-hover);
+}
+
+.rock-tab {
+	flex: 1;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--size-2-2);
+	height: auto;
+	padding: var(--size-2-2) var(--size-4-2);
+	border-radius: calc(var(--radius-m) - 2px);
+	background-color: transparent;
+	box-shadow: none;
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+}
+
+.rock-tab:hover {
+	background-color: transparent;
+	color: var(--text-normal);
+}
+
+.rock-tab.is-active {
+	background-color: var(--background-primary);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 1px 1px rgba(0, 0, 0, 0.04);
+	color: var(--text-normal);
+}
+
+.rock-tab-count {
+	font-variant-numeric: tabular-nums;
+	color: var(--text-faint);
+}
+
+.rock-body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+}
+
+.rock-empty,
+.rock-footnote {
+	padding: var(--size-4-4) var(--size-4-2);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	text-align: center;
+}
+
+.rock-footnote {
+	padding: var(--size-4-2);
+	font-size: var(--font-ui-smaller);
+}
+
+/* Annotation cards */
+
+.rock-attachment {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+}
+
+.rock-attachment-title {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-1);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-semibold);
+	color: var(--text-muted);
+}
+
+.rock-card {
+	--rock-annotation-color: var(--text-faint);
+	--rock-annotation-tint: color-mix(in srgb, var(--rock-annotation-color) var(--rock-tint-strength), transparent);
+	padding: var(--size-4-2) var(--size-4-3);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-right: 3px solid var(--rock-annotation-tint);
+	border-radius: var(--radius-s);
+	background-color: var(--background-primary);
+	cursor: grab;
+}
+
+.rock-card:focus {
+	outline: none;
+}
+
+.rock-card-meta {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+.rock-card-where {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.rock-card-type {
+	display: inline-flex;
+	color: var(--text-faint);
+}
+
+.rock-card-type svg {
+	width: var(--icon-xs);
+	height: var(--icon-xs);
+}
+
+.rock-card-text {
+	margin-top: var(--size-4-1);
+	font-size: var(--font-ui-small);
+	line-height: var(--line-height-normal);
+	user-select: text;
+}
+
+.rock-card-image {
+	margin-top: var(--size-4-1);
+}
+
+/* As wide as the card, so its room can be kept (aspect-ratio) while it loads. */
+.rock-card-image img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	border-radius: var(--radius-s);
+}
+
+.rock-card-image.is-missing {
+	padding: var(--size-4-3);
+	border: var(--border-width) dashed var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+.rock-card-comment {
+	margin-top: var(--size-4-1);
+	padding: var(--size-2-1) var(--size-2-2);
+	margin-left: calc(-1 * var(--size-2-2));
+	border-radius: var(--radius-s);
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	cursor: text;
+}
+
+.rock-card-comment:not(.is-editing):hover {
+	background-color: var(--background-modifier-hover);
+}
+
+/* The place to add a comment, shown on the selected card only. */
+.rock-card-comment.is-empty {
+	display: none;
+	font-style: italic;
+	color: var(--text-faint);
+}
+
+.rock-card.is-selected .rock-card-comment.is-empty {
+	display: block;
+}
+
+.rock-card-comment-label {
+	font-weight: var(--font-semibold);
+}
+
+/* Zotero notes */
+
+.rock-note-list {
+	display: flex;
+	flex-direction: column;
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	overflow: hidden;
+}
+
+.rock-note-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-4-2);
+	padding: var(--size-4-1) var(--size-4-3);
+	font-size: var(--font-ui-small);
+	cursor: var(--cursor);
+}
+
+.rock-note-item:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.rock-note-item.is-selected {
+	background-color: var(--background-modifier-active-hover);
+}
+
+.rock-note-item-title {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.rock-note-item-dirty {
+	flex-shrink: 0;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background-color: var(--color-orange);
+}
+
+.rock-note-status-text {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+.rock-note-status-text.mod-warning {
+	color: var(--text-warning);
+}
+
+.rock-note-body {
+	margin-top: var(--size-4-2);
+}
+
+.rock-note-rendered,
+.rock-note-editor {
+	padding: var(--size-4-2) var(--size-4-3);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	font-size: var(--font-ui-small);
+	line-height: var(--line-height-normal);
+	user-select: text;
+	overflow-wrap: anywhere;
+}
+
+.rock-note-editor {
+	min-height: 160px;
+	outline: none;
+	background-color: var(--background-primary);
+}
+
+.rock-note-editor:focus {
+	border-color: var(--interactive-accent);
+}
+
+.rock-note-rendered > :first-child,
+.rock-note-editor > :first-child {
+	margin-top: 0;
+}
+
+.rock-note-placeholder {
+	color: var(--text-faint);
+	font-style: italic;
+}
+
+.rock-note-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-1);
+	margin-bottom: var(--size-4-1);
+}
+
+/* Conflict modal */
+
+.rock-diff-legend {
+	display: flex;
+	gap: var(--size-4-4);
+	font-size: var(--font-ui-smaller);
+}
+
+.rock-diff {
+	margin: var(--size-4-2) 0;
+	padding: var(--size-4-2);
+	max-height: 50vh;
+	overflow-y: auto;
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+	white-space: pre-wrap;
+}
+
+.rock-diff-removed {
+	color: var(--color-red);
+}
+
+.rock-diff-line.rock-diff-removed {
+	background-color: rgba(var(--color-red-rgb), 0.1);
+}
+
+.rock-diff-added {
+	color: var(--color-green);
+}
+
+.rock-diff-line.rock-diff-added {
+	background-color: rgba(var(--color-green-rgb), 0.1);
+}
+
+.rock-diff-line.rock-diff-same {
+	color: var(--text-muted);
+}
+
+.rock-prompt-input {
+	width: 100%;
+}
+
+/* Annotation comment editor */
+
+.rock-card-comment.is-editing {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-1);
+	cursor: auto;
+}
+
+.rock-comment-input {
+	width: 100%;
+	min-height: 3em;
+	field-sizing: content;
+	resize: vertical;
+	font-size: var(--font-ui-small);
+}
+
+.rock-comment-footer {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-1);
+}
+
+.rock-comment-status {
+	flex: 1;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-faint);
+}
+
+.rock-comment-status.mod-warning {
+	color: var(--text-warning);
+}
+
+.rock-comment-footer button {
+	font-size: var(--font-ui-smaller);
+}
+
+/* --- The note: large title, then one card per cited paper ---------------- */
+
+.rock-overview,
+.rock-paper-mode {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+}
+
+.rock-large-title {
+	/* Room on the right for the floating magnifier. */
+	padding: var(--size-2-3) 32px var(--size-4-1) 0;
+}
+
+/* And for the bibliography button, where it is shown. */
+.rock-view.has-tool .rock-large-title {
+	padding-right: calc(var(--rock-icon-right) + 2 * (var(--rock-icon-button) + var(--rock-icon-gap)));
+}
+
+.rock-large-title-text {
+	font-size: 1.3em;
+	font-weight: var(--font-bold);
+	letter-spacing: -0.01em;
+	line-height: var(--line-height-tight);
+	word-break: break-word;
+}
+
+.rock-large-title-summary {
+	margin-top: var(--size-2-1);
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+/*
+ * A paper's section, as in an inset grouped list: the paper as the heading,
+ * on the panel's background; its citations in a card below.
+ */
+.rock-overview-paper {
+	display: flex;
+	flex-direction: column;
+	margin-top: var(--size-4-2);
+}
+
+.rock-overview-paper-header {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--size-2-2);
+}
+
+.rock-overview-paper-titles {
+	flex: 1;
+	min-width: 0;
+	margin: 0 calc(-1 * var(--size-2-2));
+	padding: var(--size-2-2);
+	border-radius: var(--radius-m);
+	cursor: grab;
+}
+
+.rock-overview-paper-titles:focus {
+	outline: none;
+}
+
+.rock-overview-paper-title {
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	font-size: var(--font-ui-medium);
+	font-weight: var(--font-semibold);
+	line-height: var(--line-height-tight);
+}
+
+.rock-overview-paper-title.is-missing {
+	font-weight: var(--font-normal);
+	color: var(--text-muted);
+}
+
+.rock-overview-paper-meta {
+	margin-top: 2px;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+/* Folds the card; on the right, where the eye ends the heading. */
+.rock-overview-toggle {
+	flex-shrink: 0;
+	margin-top: var(--size-2-2);
+	padding: 2px;
+	color: var(--text-faint);
+}
+
+/* It turns on the fold's spring (section-fold.ts), not a transition. */
+.rock-overview-toggle svg {
+	width: 16px;
+	height: 16px;
+}
+
+.rock-overview-paper.is-collapsed .rock-overview-toggle svg {
+	transform: rotate(-90deg);
+}
+
+/* What folds: the card, with the space above it. */
+.rock-overview-fold {
+	display: flow-root;
+}
+
+.rock-overview-fold.is-folding {
+	overflow: hidden;
+}
+
+.rock-overview-paper.is-collapsed .rock-overview-fold:not(.is-folding) {
+	display: none;
+}
+
+/* The card: citations, smaller and quieter than the paper above them. */
+.rock-overview-links {
+	display: flex;
+	margin-top: var(--size-2-2);
+	flex-direction: column;
+	padding: var(--size-2-2);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: 10px;
+	background-color: var(--background-primary);
+}
+
+/* A citation: the annotation's color as a thin bar, the quote, its page. */
+.rock-overview-link {
+	--rock-annotation-color: var(--text-faint);
+	--rock-annotation-tint: color-mix(in srgb, var(--rock-annotation-color) var(--rock-tint-strength), transparent);
+	display: flex;
+	align-items: stretch;
+	gap: var(--size-4-2);
+	padding: var(--size-2-3) var(--size-4-2);
+	border-radius: var(--radius-s);
+	cursor: var(--cursor);
+}
+
+.rock-overview-link:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.rock-overview-link-bar {
+	flex: none;
+	width: 3px;
+	border-radius: 2px;
+	background-color: var(--rock-annotation-tint);
+}
+
+.rock-overview-link-text {
+	flex: 1;
+	min-width: 0;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	font-size: var(--font-ui-small);
+	line-height: var(--line-height-tight);
+}
+
+.rock-overview-link-kind {
+	display: inline-flex;
+	margin-right: var(--size-2-2);
+	vertical-align: -2px;
+	color: var(--text-muted);
+}
+
+.rock-overview-link-kind svg {
+	width: var(--icon-xs);
+	height: var(--icon-xs);
+}
+
+.rock-overview-link-page {
+	flex: none;
+	align-self: flex-start;
+	font-size: var(--font-ui-smaller);
+	font-variant-numeric: tabular-nums;
+	color: var(--text-faint);
+}
+
+.rock-cited {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-2-1);
+	color: var(--text-faint);
+}
+
+.rock-cited svg {
+	width: 12px;
+	height: 12px;
+}
+
+/* --- Transition between a paper's card and its page ----------------------- */
+
+/* Out of the flow, over the note's list, while it grows out of (or into) a card. */
+.rock-paper-mode.is-overlay {
+	position: absolute;
+	left: var(--size-4-3);
+	right: var(--size-4-3);
+	z-index: 1;
+	overflow: hidden;
+	background-color: var(--background-secondary);
+}
+
+.rock-paper-mode.is-hidden {
+	visibility: hidden;
+}
+
+.rock-transition-title {
+	transform-origin: 0 0;
+}
+
+/* --- PDF pages (Quick Look and the PDF tab) ------------------------------- */
+
+.rock-pdf-scroller {
+	position: relative;
+}
+
+/* Gap and padding are set in pdf-pages.ts. As wide as the widest page, so zoomed in it scrolls sideways. */
+.rock-pdf-pages {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	width: max-content;
+	min-width: 100%;
+}
+
+.rock-pdf-page {
+	position: relative;
+	flex: none;
+	/* PDF pages are paper-white in both themes, as in Zotero. */
+	background-color: white;
+	box-shadow: var(--shadow-s);
+}
+
+.rock-pdf-canvas {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+}
+
+.rock-pdf-overlay {
+	position: absolute;
+	inset: 0;
+	z-index: 2;
+	pointer-events: none;
+}
+
+.rock-pdf-shape {
+	position: absolute;
+}
+
+.rock-pdf-shape.is-highlight {
+	background-color: var(--rock-annotation-color);
+	opacity: 0.4;
+	mix-blend-mode: multiply;
+}
+
+.rock-pdf-shape.is-underline {
+	background-color: var(--rock-annotation-color);
+}
+
+/*
+ * An area, and one being dragged out: a pane of liquid glass, as the panel's
+ * selection. Clear in the middle so the figure stays as it is; a rim in the
+ * annotation's color, lit from the top left, glowing faintly inward and out.
+ * Pages are paper-light in every theme, so one look serves both.
+ */
+.rock-pdf-shape.is-image,
+.rock-pdf-area-draft {
+	border: 1.5px solid color-mix(in srgb, var(--rock-annotation-color) 80%, white);
+	border-radius: 6px;
+	background:
+		radial-gradient(120% 80% at 12% 0%, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0) 50%),
+		color-mix(in srgb, var(--rock-annotation-color) 5%, transparent);
+	box-shadow:
+		inset 0 1px 1px rgba(255, 255, 255, 0.85),
+		inset 0 0 0 1px rgba(255, 255, 255, 0.3),
+		inset 0 0 10px color-mix(in srgb, var(--rock-annotation-color) 10%, transparent),
+		0 1px 2px rgba(0, 0, 0, 0.08),
+		0 3px 10px color-mix(in srgb, var(--rock-annotation-color) 14%, transparent);
+	backdrop-filter: saturate(130%) brightness(1.02);
+}
+
+.rock-pdf-shape.is-note {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 2px;
+	background-color: var(--rock-annotation-color);
+	color: rgba(0, 0, 0, 0.6);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.rock-pdf-shape.is-note svg {
+	width: 70%;
+	height: 70%;
+}
+
+.rock-pdf-shape.is-text {
+	color: var(--rock-annotation-color);
+	line-height: 1.2;
+	white-space: pre-wrap;
+	overflow: hidden;
+}
+
+.rock-pdf-ink {
+	position: absolute;
+	inset: 0;
+}
+
+.rock-pdf-ink polyline {
+	fill: none;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+/* The annotation just opened, in Quick Look or Zotero PDF: a frame shows for a moment and fades out. */
+.rock-pdf-focus {
+	position: absolute;
+	border: 2px solid var(--interactive-accent);
+	border-radius: var(--radius-s);
+	box-shadow: 0 0 0 4px hsla(var(--interactive-accent-hsl), 0.25);
+	pointer-events: none;
+	opacity: 0;
+	animation: rock-pdf-focus 1s ease-out;
+}
+
+@keyframes rock-pdf-focus {
+	0% {
+		opacity: 0;
+	}
+	12%,
+	45% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+	}
+}
+
+/* In the PDF tab, annotations can be dragged into notes. */
+.rock-pdf-overlay.is-interactive .rock-pdf-shape {
+	pointer-events: auto;
+	cursor: grab;
+}
+
+/* pdf.js text layer: invisible, selectable text over the canvas. Selectable
+ * even outside a view (Quick Look), where Obsidian turns selection off. */
+.rock-pdf-page .textLayer {
+	-webkit-user-select: text;
+	user-select: text;
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	overflow: clip;
+	line-height: 1;
+	text-align: initial;
+	text-size-adjust: none;
+	forced-color-adjust: none;
+	transform-origin: 0 0;
+	caret-color: CanvasText;
+	--scale-round-x: 1px;
+	--scale-round-y: 1px;
+}
+
+.rock-pdf-page .textLayer :is(span, br) {
+	position: absolute;
+	color: transparent;
+	white-space: pre;
+	cursor: text;
+	transform-origin: 0% 0%;
+}
+
+.rock-pdf-page .textLayer span.markedContent {
+	top: 0;
+	height: 0;
+}
+
+.rock-pdf-page .textLayer ::selection {
+	background: hsla(var(--interactive-accent-hsl), 0.3);
+}
+
+.rock-pdf-page .textLayer br::selection {
+	background: transparent;
+}
+
+.rock-pdf-page .textLayer .endOfContent {
+	display: block;
+	position: absolute;
+	inset: 100% 0 0;
+	z-index: 0;
+	cursor: default;
+	user-select: none;
+}
+
+/* --- Quick Look ----------------------------------------------------------- */
+
+.rock-quicklook-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: var(--layer-modal);
+	background-color: rgba(0, 0, 0, 0.14);
+}
+
+/* Glass: nearly opaque, blurring what is behind it, with a bright rim. */
+.rock-quicklook {
+	position: fixed;
+	z-index: var(--layer-modal);
+	overflow: hidden;
+	border: 1px solid rgba(255, 255, 255, 0.22);
+	border-radius: 14px;
+	background-color: color-mix(in srgb, var(--background-primary) 94%, transparent);
+	backdrop-filter: blur(24px) saturate(160%);
+	box-shadow:
+		0 16px 40px rgba(0, 0, 0, 0.22),
+		0 2px 6px rgba(0, 0, 0, 0.1),
+		inset 0 1px 0 rgba(255, 255, 255, 0.4);
+	/* The opening motion scales it from its top left corner. */
+	transform-origin: 0 0;
+	outline: none;
+}
+
+/* Laid out, waiting for its content before it starts to move. */
+.rock-quicklook.is-hidden,
+.rock-quicklook-backdrop.is-hidden {
+	opacity: 0;
+}
+
+/* While moving, it is only transformed: nothing that needs repainting every frame. */
+.rock-quicklook.is-moving {
+	backdrop-filter: none;
+	will-change: transform, opacity;
+}
+
+.rock-quicklook.is-moving .rock-quicklook-content {
+	will-change: transform;
+}
+
+.rock-quicklook-content {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	transform-origin: 0 0;
+}
+
+/* Resizable by its edges and corners, movable by its title bar (when the setting is on). */
+.rock-quicklook-handle {
+	position: absolute;
+	z-index: 3;
+}
+
+.rock-quicklook.is-moving .rock-quicklook-handle {
+	pointer-events: none;
+}
+
+.rock-quicklook-handle:is(.is-n, .is-s) {
+	left: 12px;
+	right: 12px;
+	height: 6px;
+	cursor: ns-resize;
+}
+
+.rock-quicklook-handle:is(.is-e, .is-w) {
+	top: 12px;
+	bottom: 12px;
+	width: 6px;
+	cursor: ew-resize;
+}
+
+.rock-quicklook-handle:is(.is-ne, .is-nw, .is-se, .is-sw) {
+	width: 14px;
+	height: 14px;
+}
+
+.rock-quicklook-handle:is(.is-n, .is-ne, .is-nw) {
+	top: 0;
+}
+
+.rock-quicklook-handle:is(.is-s, .is-se, .is-sw) {
+	bottom: 0;
+}
+
+.rock-quicklook-handle:is(.is-e, .is-ne, .is-se) {
+	right: 0;
+}
+
+.rock-quicklook-handle:is(.is-w, .is-nw, .is-sw) {
+	left: 0;
+}
+
+.rock-quicklook-handle:is(.is-nw, .is-se) {
+	cursor: nwse-resize;
+}
+
+.rock-quicklook-handle:is(.is-ne, .is-sw) {
+	cursor: nesw-resize;
+}
+
+/* Dragging: nothing underneath reacts, and no text gets selected. */
+.rock-quicklook.is-dragging {
+	user-select: none;
+}
+
+.rock-quicklook.is-dragging .rock-quicklook-body {
+	pointer-events: none;
+}
+
+.rock-quicklook-header {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	padding: var(--size-4-1) var(--size-4-2) var(--size-4-1) var(--size-4-4);
+	border-bottom: var(--border-width) solid var(--background-modifier-border);
+	font-size: var(--font-ui-small);
+}
+
+.rock-quicklook-title {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--text-normal);
+}
+
+.rock-quicklook-page {
+	margin-right: var(--size-4-2);
+	color: var(--text-muted);
+}
+
+/* The zoom, shown once zoomed; a click fits the width again. */
+.rock-quicklook-zoom {
+	padding: 2px var(--size-4-2);
+	font-size: var(--font-ui-smaller);
+	font-variant-numeric: tabular-nums;
+	color: var(--text-muted);
+}
+
+.rock-quicklook-zoom.is-fit {
+	display: none;
+}
+
+.rock-quicklook-counter {
+	color: var(--text-faint);
+	font-variant-numeric: tabular-nums;
+}
+
+.rock-quicklook-actions {
+	display: flex;
+	gap: var(--size-2-1);
+}
+
+.rock-quicklook-body {
+	flex: 1;
+	overflow: auto;
+}
+
+.rock-quicklook-hint {
+	padding: var(--size-2-2) var(--size-4-4);
+	border-top: var(--border-width) solid var(--background-modifier-border);
+	font-size: var(--font-ui-smaller);
+	color: var(--text-faint);
+	text-align: center;
+}
+
+/* --- PDF tab -------------------------------------------------------------- */
+
+.rock-reader.view-content {
+	display: flex;
+	flex-direction: column;
+	padding: 0;
+	overflow: hidden;
+}
+
+.rock-reader-scroller {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+	background-color: var(--background-secondary);
+}
+
+/* Tools on the left, colors on the right, above the pages. */
+.rock-reader-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-4-2);
+	padding: var(--size-2-3) var(--size-4-3);
+	border-bottom: var(--border-width) solid var(--background-modifier-border);
+	background-color: var(--background-primary);
+}
+
+/*
+ * The tools and the bar's highlight / underline: the chosen one raised and in
+ * the accent color. "button…:not(.clickable-icon)" outranks Obsidian's own
+ * button style, which would otherwise paint them all alike.
+ */
+:is(.rock-reader-toolbar, .rock-reader-popup) button.rock-tab:not(.clickable-icon) {
+	flex: none;
+	height: auto;
+	padding: var(--size-2-2) var(--size-4-2);
+	background-color: transparent;
+	box-shadow: none;
+	color: var(--text-muted);
+}
+
+:is(.rock-reader-toolbar, .rock-reader-popup) button.rock-tab:not(.clickable-icon):hover {
+	background-color: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+:is(.rock-reader-toolbar, .rock-reader-popup) button.rock-tab.is-active:not(.clickable-icon) {
+	background-color: var(--background-primary);
+	box-shadow:
+		0 1px 3px rgba(0, 0, 0, 0.14),
+		0 0 0 1px var(--background-modifier-border);
+	color: var(--text-accent);
+}
+
+.rock-reader-tools .rock-tab svg {
+	width: var(--icon-s);
+	height: var(--icon-s);
+}
+
+.rock-reader-colors {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2-2);
+}
+
+/* An annotation color: a dot in that color, ringed when chosen. (Outranks Obsidian's button style, as above.) */
+button.rock-color-dot:not(.clickable-icon) {
+	flex: none;
+	width: 16px;
+	height: 16px;
+	padding: 0;
+	border: none;
+	border-radius: 50%;
+	background-color: var(--rock-annotation-color);
+	box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+	cursor: var(--cursor);
+}
+
+button.rock-color-dot:not(.clickable-icon):hover {
+	background-color: var(--rock-annotation-color);
+	transform: scale(1.12);
+}
+
+button.rock-color-dot.is-active:not(.clickable-icon) {
+	box-shadow:
+		inset 0 0 0 1px rgba(0, 0, 0, 0.12),
+		0 0 0 2px var(--background-primary),
+		0 0 0 3.5px var(--rock-annotation-color);
+}
+
+/* By a selection, in "select text": highlight or underline it in a color, or copy it. */
+.rock-reader-popup {
+	position: absolute;
+	z-index: 5;
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	padding: var(--size-2-2) var(--size-4-2);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-l);
+	background-color: var(--background-primary);
+	box-shadow: var(--shadow-s);
+}
+
+.rock-reader-popup button.rock-tab:not(.clickable-icon) {
+	padding: 2px var(--size-2-3);
+}
+
+/*
+ * An area lets the pointer through to the text inside it, to be selected;
+ * clicks find it by its outline (annotation-tools.ts).
+ */
+.rock-pdf-overlay.is-interactive .rock-pdf-shape.is-image {
+	pointer-events: none;
+}
+
+/* Marking tools: existing annotations let the selection or drag through. */
+.rock-reader-scroller.is-marking-tool .rock-pdf-overlay.is-interactive .rock-pdf-shape {
+	pointer-events: none;
+}
+
+/* Selecting an area: drawn, not selected as text. */
+.rock-reader-scroller.is-area-tool .rock-pdf-page {
+	cursor: crosshair;
+}
+
+.rock-reader-scroller.is-area-tool .rock-pdf-page .textLayer {
+	pointer-events: none;
+}
+
+/* Being dragged out: the same glass (above), a little more tinted, as a selection is. */
+.rock-pdf-area-draft {
+	position: absolute;
+	z-index: 3;
+	background:
+		radial-gradient(120% 80% at 12% 0%, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0) 50%),
+		color-mix(in srgb, var(--rock-annotation-color) 10%, transparent);
+	pointer-events: none;
+}
+
+/* Made, while Zotero saves it. */
+.rock-pdf-shape.is-pending {
+	animation: rock-pdf-pending 1s ease-in-out infinite alternate;
+}
+
+@keyframes rock-pdf-pending {
+	to {
+		opacity: 0.2;
+	}
+}
+
+.rock-menu-swatch {
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	margin-right: var(--size-4-2);
+	border-radius: 50%;
+	background-color: var(--rock-annotation-color);
+	box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+/* --- Selection: a piece of liquid glass ----------------------------------- */
+
+.rock-glass-host {
+	position: relative;
+}
+
+/*
+ * Laid over the selected element. Clear in the middle so text stays crisp;
+ * a soft highlight from the top left, a bright rim, and what is under it
+ * slightly brightened and more saturated, like looking through a lens.
+ */
+.rock-glass-lens {
+	position: absolute;
+	z-index: 1;
+	pointer-events: none;
+	opacity: 0;
+	border-radius: calc(var(--radius-s) + 2px);
+	border: 1px solid rgba(255, 255, 255, 0.55);
+	background:
+		radial-gradient(130% 90% at 15% 0%, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 55%),
+		color-mix(in srgb, var(--interactive-accent) 7%, transparent);
+	box-shadow:
+		inset 0 1px 1px rgba(255, 255, 255, 0.7),
+		inset 0 -1px 1px rgba(0, 0, 0, 0.05),
+		0 1px 2px rgba(0, 0, 0, 0.06),
+		0 6px 16px rgba(0, 0, 0, 0.08);
+	backdrop-filter: saturate(150%) brightness(1.03);
+}
+
+.rock-glass-lens.is-shown {
+	opacity: 1;
+}
+
+.theme-dark .rock-glass-lens {
+	border-color: rgba(255, 255, 255, 0.18);
+	background:
+		radial-gradient(130% 90% at 15% 0%, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 55%),
+		color-mix(in srgb, var(--interactive-accent) 10%, transparent);
+	box-shadow:
+		inset 0 1px 1px rgba(255, 255, 255, 0.18),
+		inset 0 -1px 1px rgba(0, 0, 0, 0.2),
+		0 6px 16px rgba(0, 0, 0, 0.25);
+	backdrop-filter: saturate(140%) brightness(1.1);
+}

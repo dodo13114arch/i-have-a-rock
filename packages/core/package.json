@@ -1,0 +1,9 @@
+{
+	"name": "@i-have-a-rock/core",
+	"version": "0.1.0",
+	"private": true,
+	"description": "Zotero models, URIs, client and formatting shared by every I Have a Rock frontend.",
+	"type": "module",
+	"main": "src/index.ts",
+	"types": "src/index.ts"
+}

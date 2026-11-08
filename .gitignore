@@ -1,0 +1,15 @@
+notes/
+
+.DS_Store
+Icon?
+node_modules/
+
+# Obsidian build output (attached to GitHub releases, not committed)
+/main.js
+/styles.css
+
+# Local development vault (open it in Obsidian; plugin files are symlinked)
+/test-vault/
+
+# Tests stay local: their fixtures come from a real Zotero library
+packages/*/test/
