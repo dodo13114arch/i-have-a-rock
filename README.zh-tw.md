@@ -6,6 +6,8 @@
 
 [English](README.md) · [繁體中文](README.zh-tw.md)
 
+[Obsidian 社群外掛頁面](https://community.obsidian.md/plugins/i-have-a-rock)
+
 ## 為什麼叫這個名字？
 
 Zotero 的名字源自阿爾巴尼亞語 *zotëroj*，意思是「擁有、掌握」。

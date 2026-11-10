@@ -24,6 +24,11 @@ export function isSafeHref(href: string): boolean {
 	return /^(https?:|mailto:|zotero:|obsidian:|#)/i.test(href.trim());
 }
 
+/** Unlike `instanceof Element`, also true for nodes from another window (an Obsidian popout). */
+function isElement(node: Node): node is Element {
+	return node.nodeType === Node.ELEMENT_NODE;
+}
+
 function parseBody(html: string): HTMLElement {
 	return new DOMParser().parseFromString(`<body>${html}</body>`, "text/html").body;
 }
@@ -34,7 +39,7 @@ function unwrapSchemaDiv(body: HTMLElement): { root: Element; schemaVersion?: st
 		(node) => node.nodeType !== Node.TEXT_NODE || node.textContent?.trim(),
 	);
 	const only = elements[0];
-	if (elements.length === 1 && only instanceof Element && only.tagName === "DIV" && only.hasAttribute("data-schema-version")) {
+	if (elements.length === 1 && only && isElement(only) && only.tagName === "DIV" && only.hasAttribute("data-schema-version")) {
 		const extraAttributes = Array.from(only.attributes).filter((attr) => attr.name !== "data-schema-version");
 		if (extraAttributes.length === 0) {
 			return { root: only, schemaVersion: only.getAttribute("data-schema-version") ?? undefined };
@@ -53,7 +58,7 @@ export function analyzeNoteHtml(html: string): NoteAnalysis {
 				unsupported.add("HTML comment");
 				continue;
 			}
-			if (!(node instanceof Element)) {
+			if (!isElement(node)) {
 				unsupported.add(node.nodeName);
 				continue;
 			}
@@ -85,7 +90,7 @@ export function renderNoteHtml(html: string, doc: Document, imagePlaceholder = "
 				target.appendChild(doc.createTextNode(node.textContent ?? ""));
 				continue;
 			}
-			if (!(node instanceof Element)) continue;
+			if (!isElement(node)) continue;
 			const tag = node.tagName.toLowerCase();
 			if (DROPPED_TAGS.has(tag)) continue;
 			if (tag === "img") {
@@ -135,7 +140,7 @@ export function serializeEditedNote(editor: Element, schemaVersion?: string): st
 				out += escapeText(node.textContent ?? "");
 				continue;
 			}
-			if (!(node instanceof Element)) continue;
+			if (!isElement(node)) continue;
 			let tag = node.tagName.toLowerCase();
 			if (DROPPED_TAGS.has(tag)) continue;
 			tag = TAG_ALIASES[tag] ?? tag;
@@ -172,7 +177,7 @@ export function serializeEditedNote(editor: Element, schemaVersion?: string): st
 		looseInline = "";
 	};
 	for (const node of Array.from(editor.childNodes)) {
-		const tag = node instanceof Element ? (TAG_ALIASES[node.tagName.toLowerCase()] ?? node.tagName.toLowerCase()) : "";
+		const tag = isElement(node) ? (TAG_ALIASES[node.tagName.toLowerCase()] ?? node.tagName.toLowerCase()) : "";
 		const wrapper = editor.ownerDocument.createElement("div");
 		wrapper.appendChild(node.cloneNode(true));
 		if (BLOCK_TAGS.includes(tag)) {

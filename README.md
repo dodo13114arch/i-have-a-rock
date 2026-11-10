@@ -6,6 +6,8 @@
 
 [English](README.md) · [繁體中文](README.zh-tw.md)
 
+[Plugin page on Obsidian Community](https://community.obsidian.md/plugins/i-have-a-rock)
+
 ## Why the name?
 
 Zotero gets its name from the Albanian word *zotëroj*, which means "to own" or "to master."
