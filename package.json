@@ -1,6 +1,6 @@
 {
 	"name": "i-have-a-rock",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"private": true,
 	"description": "A plugin connecting Zotero and Obsidian.",
 	"type": "module",

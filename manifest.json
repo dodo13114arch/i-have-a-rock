@@ -1,7 +1,7 @@
 {
 	"id": "i-have-a-rock",
 	"name": "I Have a Rock",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"minAppVersion": "1.14.4",
 	"description": "Browse Zotero annotations in a sidebar, quote them into notes with links back to the PDF, view and annotate PDFs, and edit Zotero notes.",
 	"author": "David Chang",
