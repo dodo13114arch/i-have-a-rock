@@ -14,6 +14,7 @@ import {
 	ZoteroError,
 } from "@i-have-a-rock/core";
 import { t } from "../i18n";
+import { ROCK_ICON } from "../icon";
 import type RockPlugin from "../main";
 import { errorMessage } from "../settings";
 import { AnnotationList } from "./annotation-list";
@@ -130,7 +131,7 @@ export class RockView extends ItemView {
 	}
 
 	getIcon(): string {
-		return "gem";
+		return ROCK_ICON;
 	}
 
 	get pinned(): boolean {

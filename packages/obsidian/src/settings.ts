@@ -232,10 +232,11 @@ export class RockSettingTab extends PluginSettingTab {
 							setting.setDesc(`${t.settingsWriteAccessDesc} ${hasKey ? t.settingsWriteAccessStored : t.settingsWriteAccessNone}`);
 							setting.addButton((button) =>
 								button
-									.setButtonText(t.settingsForget)
+									.setButtonText(t.settingsRevoke)
 									.setDisabled(!hasKey)
 									.onClick(() => {
 										this.plugin.zotero.forgetWriteKey();
+										new Notice(t.settingsRevoked);
 										this.update();
 									}),
 							);

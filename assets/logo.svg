@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="119 122 400 400" role="img" aria-label="I Have a Rock: a hand holding a stone">
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <!-- Three muted violet accents, matched to the shaded stone facet -->
+    <g stroke="#826A9B" stroke-width="21" fill="none">
+      <path d="M374 201 L386 161"/>
+      <path d="M411 215 L444 187"/>
+      <path d="M441 248 L475 239"/>
+    </g>
+    <!-- Soft Obsidian-inspired violet stone with two restrained facets -->
+    <!-- Stone silhouette stays filled, but only the visible upper edge gets an outline; this avoids doubled strokes where the stone meets the hand. -->
+    <path d="M215 357 C212 334 224 310 248 293 C268 277 266 255 292 246 C319 238 336 228 350 236 C368 244 381 262 396 273 C419 285 421 296 429 327 L439 349 C426 366 408 386 393 397 C366 414 333 413 301 397 C269 384 241 382 215 357 Z" fill="#A68EBD"/>
+    <path d="M215 357 C212 334 224 310 248 293 C268 277 266 255 292 246 C319 238 336 228 350 236 C368 244 381 262 396 273 C419 285 421 296 429 327 L433 336" fill="none" stroke="#6C5140" stroke-width="12"/>
+    <path d="M373 326 L415 293 C426 306 432 332 438 349 C422 370 407 384 388 395 L350 411 C364 385 358 357 373 326Z" fill="#826A9B"/>
+    <path d="M240 305 C258 291 268 263 288 255 C311 248 334 237 351 242 C368 248 392 273 406 283 L373 326 C344 329 330 344 294 342 C274 341 252 350 223 355 C220 339 226 322 240 305Z" fill="#C8B7D5" opacity=".42"/>
+    <!-- Hand: solid fill avoids the stone shining through -->
+    <path d="M155 451 C169 421 185 382 211 367 C226 355 246 345 268 345 C288 343 303 354 327 356 C349 357 362 361 361 377 C359 396 345 407 326 405 C307 403 283 394 268 408 C302 396 320 413 346 407 C383 400 412 368 439 346 C452 334 466 331 474 338 C488 349 483 363 473 384 C454 421 433 448 412 460 C389 476 362 476 333 472 C282 466 265 473 249 488 L235 507 L199 489 C179 476 163 464 155 451 Z" fill="#FFF2E7"/>
+    <!-- Outer hand outline, with a deliberately open wrist -->
+    <path d="M155 451 C169 421 185 382 211 367 C226 355 246 345 268 345 C288 343 303 354 327 356 C349 357 362 361 361 377 C359 396 345 407 326 405" fill="none" stroke="#6C5140" stroke-width="14"/>
+    <path d="M268 408 C284 399 298 402 313 405 C342 414 377 404 398 382 C413 365 429 348 439 346 C452 334 466 331 474 338 C488 349 483 363 473 384 C454 421 433 448 412 460 C389 476 362 476 333 472 C282 466 265 473 249 488 L235 507" fill="none" stroke="#6C5140" stroke-width="14"/>
+  </g>
+</svg>

@@ -734,12 +734,17 @@ button.rock-collect-chip.is-active:not(.clickable-icon) {
 
 .rock-comment-footer {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
 	gap: var(--size-4-1);
 }
 
+/* Sized to its one-line width, so when it doesn't fit beside the buttons it
+   moves to its own line rather than squeezing into several beside them. */
 .rock-comment-status {
-	flex: 1;
+	flex: 1 1 max-content;
+	min-width: 0;
+	overflow-wrap: anywhere;
 	font-size: var(--font-ui-smaller);
 	color: var(--text-faint);
 }
@@ -748,8 +753,35 @@ button.rock-collect-chip.is-active:not(.clickable-icon) {
 	color: var(--text-warning);
 }
 
+.rock-comment-buttons {
+	display: flex;
+	flex-wrap: wrap;
+	flex-shrink: 0;
+	justify-content: flex-end;
+	gap: var(--size-4-1);
+	max-width: 100%;
+	margin-left: auto;
+}
+
 .rock-comment-footer button {
 	font-size: var(--font-ui-smaller);
+}
+
+/* Obsidian's buttons have a fixed height and never wrap; these wrap their
+   label when the panel is narrower than the button, instead of being cut off. */
+.rock-comment-buttons button,
+.rock-note-actions button {
+	min-width: 0;
+	max-width: 100%;
+	height: auto;
+	min-height: var(--input-height);
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.rock-modal-buttons .setting-item-control {
+	flex-wrap: wrap;
+	row-gap: var(--size-4-1);
 }
 
 /* --- The note: large title, then one card per cited paper ---------------- */

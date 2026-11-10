@@ -34,6 +34,7 @@ export class ConflictModal extends Modal {
 		}
 
 		new Setting(contentEl)
+			.setClass("rock-modal-buttons")
 			.addButton((button) => button.setButtonText(t.cancel).onClick(() => this.finish("cancel")))
 			.addButton((button) => button.setButtonText(t.keepZotero).onClick(() => this.finish("keep-zotero")))
 			.addButton((button) => button.setButtonText(t.keepDraft).setCta().onClick(() => this.finish("keep-draft")));

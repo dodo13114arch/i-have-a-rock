@@ -1,5 +1,7 @@
 # I Have a Rock
 
+<img src="assets/logo.svg" alt="I Have a Rock logo: a hand holding a stone" width="128">
+
 *A plugin connecting Zotero and Obsidian.*
 
 [English](README.md) · [繁體中文](README.zh-tw.md)

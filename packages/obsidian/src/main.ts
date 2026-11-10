@@ -1,4 +1,4 @@
-import { Notice, Plugin } from "obsidian";
+import { addIcon, Notice, Plugin } from "obsidian";
 import { type Annotation, type Paper, type ParsedZoteroUri, ZoteroError } from "@i-have-a-rock/core";
 import { annotationDropHandler } from "./features/annotation-drop";
 import { AnnotationTemplates } from "./features/annotation-templates";
@@ -7,6 +7,7 @@ import { ImageExporter } from "./features/image-export";
 import { zoteroLinkFollower } from "./features/link-detector";
 import { PdfDocuments } from "./features/pdf-documents";
 import { setLanguage, t } from "./i18n";
+import { ROCK_ICON, ROCK_ICON_SVG } from "./icon";
 import { DEFAULT_SETTINGS, type RockData, RockSettingTab } from "./settings";
 import { PdfReaderView, READER_VIEW_TYPE, type ReaderState } from "./views/pdf-reader-view";
 import { QuickLook } from "./views/quick-look";
@@ -24,6 +25,7 @@ export default class RockPlugin extends Plugin {
 
 	async onload(): Promise<void> {
 		await this.loadPluginData();
+		addIcon(ROCK_ICON, ROCK_ICON_SVG);
 		this.zotero = new ZoteroService(this);
 		this.images = new ImageExporter(this);
 		this.editorActions = new EditorActions(this);
@@ -34,7 +36,7 @@ export default class RockPlugin extends Plugin {
 		this.registerView(VIEW_TYPE, (leaf) => new RockView(leaf, this));
 		this.registerView(READER_VIEW_TYPE, (leaf) => new PdfReaderView(leaf, this));
 		this.addSettingTab(new RockSettingTab(this.app, this));
-		this.addRibbonIcon("gem", t.openPanel, () => void this.activateView());
+		this.addRibbonIcon(ROCK_ICON, t.openPanel, () => void this.activateView());
 		this.registerEditorExtension([
 			zoteroLinkFollower((uri, line) => void this.followLink(uri, line)),
 			annotationDropHandler(),

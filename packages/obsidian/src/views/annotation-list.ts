@@ -299,8 +299,9 @@ export class AnnotationList {
 		input.value = original;
 		const footer = el.createDiv({ cls: "rock-comment-footer" });
 		const status = footer.createSpan({ cls: "rock-comment-status", text: t.commentHint });
-		const cancel = footer.createEl("button", { text: t.cancel });
-		const save = footer.createEl("button", { cls: "mod-cta", text: t.save });
+		const buttons = footer.createDiv({ cls: "rock-comment-buttons" });
+		const cancel = buttons.createEl("button", { text: t.cancel });
+		const save = buttons.createEl("button", { cls: "mod-cta", text: t.save });
 
 		const finish = () => {
 			this.editing = null;

@@ -1,5 +1,7 @@
 # I Have a Rock
 
+<img src="assets/logo.svg" alt="I Have a Rock 標誌：一隻手托著一顆石頭" width="128">
+
 *一款連結 Zotero 與 Obsidian 的外掛。*
 
 [English](README.md) · [繁體中文](README.zh-tw.md)
