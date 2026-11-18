@@ -290,8 +290,10 @@ button.rock-collect-chip.is-active:not(.clickable-icon) {
 }
 
 /* Opened, the field unfolds to the magnifier's left in a row of its own. */
+/* Above the panel's glass, which fades out while search is in use. */
 .rock-search {
 	position: relative;
+	z-index: 2;
 	padding: var(--size-2-3) 32px 0 0;
 }
 
@@ -713,6 +715,13 @@ button.rock-collect-chip.is-active:not(.clickable-icon) {
 
 .rock-prompt-input {
 	width: 100%;
+}
+
+/* Why a name can't be used, under the field; empty until then. */
+.rock-prompt-error {
+	min-height: 1.5em;
+	color: var(--text-error);
+	font-size: var(--font-ui-smaller);
 }
 
 /* Annotation comment editor */
@@ -1519,16 +1528,13 @@ button.rock-color-dot.is-active:not(.clickable-icon) {
 }
 
 /*
- * Laid over the selected element. Clear in the middle so text stays crisp;
- * a soft highlight from the top left, a bright rim, and what is under it
- * slightly brightened and more saturated, like looking through a lens.
+ * Liquid glass, as the selection lens in the panel and over the link card's
+ * thumbnail: clear in the middle so what is under it stays crisp; a soft
+ * highlight from the top left, a bright rim, and what is under it slightly
+ * brightened and more saturated, like looking through a lens. No blur.
  */
-.rock-glass-lens {
-	position: absolute;
-	z-index: 1;
+.rock-glass {
 	pointer-events: none;
-	opacity: 0;
-	border-radius: calc(var(--radius-s) + 2px);
 	border: 1px solid rgba(255, 255, 255, 0.55);
 	background:
 		radial-gradient(130% 90% at 15% 0%, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 55%),
@@ -1541,11 +1547,7 @@ button.rock-color-dot.is-active:not(.clickable-icon) {
 	backdrop-filter: saturate(150%) brightness(1.03);
 }
 
-.rock-glass-lens.is-shown {
-	opacity: 1;
-}
-
-.theme-dark .rock-glass-lens {
+.theme-dark .rock-glass {
 	border-color: rgba(255, 255, 255, 0.18);
 	background:
 		radial-gradient(130% 90% at 15% 0%, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 55%),
@@ -1555,4 +1557,220 @@ button.rock-color-dot.is-active:not(.clickable-icon) {
 		inset 0 -1px 1px rgba(0, 0, 0, 0.2),
 		0 6px 16px rgba(0, 0, 0, 0.25);
 	backdrop-filter: saturate(140%) brightness(1.1);
+}
+
+/* Laid over the selected element. */
+.rock-glass-lens {
+	position: absolute;
+	z-index: 1;
+	opacity: 0;
+	border-radius: calc(var(--radius-s) + 2px);
+}
+
+.rock-glass-lens.is-shown {
+	opacity: 1;
+}
+
+/* Out of the way while search is in use. */
+.rock-glass-lens.is-concealed {
+	opacity: 0;
+}
+
+/* --- Link preview: a card by the annotation link the caret rests on, or that was clicked --- */
+
+/*
+ * As large as LinkPreview places it (--rock-link-preview-width and -height,
+ * 112×72px where there is room): a thumbnail filling the card, under a pane
+ * of the panel's glass, rounded like the panel's cards, with a small
+ * "Quick Look" pill of the same glass in its middle. The whole card is the
+ * button. Under modals and Quick Look.
+ */
+.rock-link-preview {
+	position: fixed;
+	z-index: var(--layer-popover);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--rock-link-preview-width);
+	height: var(--rock-link-preview-height);
+	overflow: hidden;
+	border-radius: var(--radius-m);
+	background-color: var(--background-primary);
+	color: var(--text-muted);
+	box-shadow: var(--shadow-s);
+	cursor: pointer;
+	user-select: none;
+	opacity: 0;
+	transform: scale(0.85);
+	/* Grows out of the link: from its bottom when above it, from its top when below. */
+	transform-origin: 50% 100%;
+	transition:
+		opacity 140ms ease-out,
+		transform 160ms ease-out,
+		box-shadow 120ms ease-out,
+		filter 120ms ease-out;
+}
+
+.rock-link-preview.is-below {
+	transform-origin: 50% 0;
+}
+
+.rock-link-preview.is-shown {
+	opacity: 1;
+	transform: none;
+}
+
+/* Hovered: lifted a little, and brighter. */
+.rock-link-preview.is-shown:hover {
+	box-shadow: var(--shadow-l);
+	filter: brightness(1.04);
+	transform: translateY(-1px);
+}
+
+/* Pressed: back down. */
+.rock-link-preview.is-shown:active {
+	box-shadow: var(--shadow-s);
+	filter: brightness(0.97);
+	transform: scale(0.98);
+}
+
+/*
+ * In the middle, over the thumbnail and the glass: one short line of small
+ * text on a pill of the same glass, a little more opaque so it reads on any
+ * page (two classes: over the dark theme's glass too). Not a target of its
+ * own, and not selectable.
+ */
+.rock-link-preview .rock-link-preview-label {
+	position: relative;
+	max-width: calc(100% - 12px);
+	padding: 1px 8px;
+	overflow: hidden;
+	border-radius: var(--radius-l);
+	background-color: color-mix(in srgb, var(--background-primary) 72%, transparent);
+	font-size: var(--font-ui-smaller);
+	line-height: 1.4;
+	color: var(--text-muted);
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	pointer-events: none;
+	user-select: none;
+}
+
+.rock-link-preview img {
+	position: absolute;
+	inset: 0;
+	display: none;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	pointer-events: none;
+}
+
+.rock-link-preview.has-thumbnail img {
+	display: block;
+}
+
+/* The glass covers the whole card, over the thumbnail; clicks go through to the card. */
+.rock-link-preview-glass {
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.rock-link-preview,
+	.rock-link-preview.is-shown:hover,
+	.rock-link-preview.is-shown:active {
+		transform: none;
+		transition: opacity 80ms linear;
+	}
+}
+
+/* --- Settings: the format for a single annotation, and the user's own ------ */
+
+/* The editor and sample take the row's full width, under its name and controls. */
+.rock-format-setting {
+	flex-wrap: wrap;
+}
+
+.rock-format-body {
+	display: flex;
+	flex-direction: column;
+	flex-basis: 100%;
+	gap: var(--size-4-3);
+	padding-top: var(--size-4-3);
+}
+
+.rock-format-label {
+	margin-bottom: var(--size-4-1);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-semibold);
+}
+
+.rock-format-input,
+.rock-format-template {
+	box-sizing: border-box;
+	width: 100%;
+	margin: 0;
+	padding: var(--size-4-2) var(--size-4-3);
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-small);
+}
+
+.rock-format-input {
+	min-height: 5em;
+	resize: vertical;
+}
+
+.rock-format-template {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	color: var(--text-muted);
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	user-select: text;
+}
+
+.rock-format-hint,
+.rock-format-help {
+	margin-top: var(--size-4-1);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+/* How to write a format, and the variables, folded away under a small muted label. */
+.rock-format-instructions {
+	margin-top: var(--size-4-2);
+}
+
+.rock-format-instructions > summary {
+	width: fit-content;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	cursor: var(--cursor);
+}
+
+.rock-format-instructions > summary:hover {
+	color: var(--text-normal);
+}
+
+/* The variables, one per line as written. */
+.rock-format-help {
+	white-space: pre-wrap;
+	user-select: text;
+}
+
+.rock-template-preview {
+	margin: 0;
+	padding: var(--size-4-2) var(--size-4-3);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	background-color: var(--background-secondary);
+	color: var(--text-normal);
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	user-select: text;
 }

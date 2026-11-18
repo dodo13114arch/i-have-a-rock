@@ -18,6 +18,7 @@ import { copyToClipboard } from "./clipboard";
 import type { GlassLens } from "./glass-lens";
 import { deleteAnnotation } from "./annotation-tools";
 import { chooseCommentConflict } from "./modals";
+import { openUrl } from "../features/open-guard";
 
 export const TYPE_LABELS: Record<Annotation["type"], () => string> = {
 	highlight: () => t.typeHighlight,
@@ -257,6 +258,8 @@ export class AnnotationList {
 		});
 
 		card.draggable = true;
+		// A drag may follow: a template file changed outside Obsidian is read by then.
+		card.addEventListener("pointerdown", () => this.plugin.templates.refreshIfStale());
 		// When it was made; with tips on, what can be done with it.
 		const tooltip = [annotationWhen(annotation), this.plugin.data.settings.showHints ? t.dragHint : ""].filter(Boolean).join("\n");
 		if (tooltip) setTooltip(card, tooltip, { placement: "left", delay: 600, classes: ["rock-tooltip"] });
@@ -449,7 +452,7 @@ export class AnnotationList {
 				.setIcon("book-open")
 				.onClick(() => void this.plugin.openReader(paper.itemKey, annotation.attachmentKey, annotation.annotationKey)),
 		);
-		menu.addItem((item) => item.setTitle(t.openInZotero).setIcon("external-link").onClick(() => window.open(annotation.zoteroUrl)));
+		menu.addItem((item) => item.setTitle(t.openInZotero).setIcon("external-link").onClick(() => openUrl(annotation.zoteroUrl)));
 		menu.addSeparator();
 		menu.addItem((item) =>
 			item

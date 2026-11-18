@@ -107,6 +107,63 @@ export function promptText(app: App, label: string, initial = ""): Promise<strin
 	return new Promise((resolve) => new TextPromptModal(app, label, initial, resolve).open());
 }
 
+/**
+ * Asks for a name, checked as it is submitted: a problem shows under the
+ * field and the modal stays open. Resolves with the checked name, or null.
+ */
+class NamePromptModal extends Modal {
+	private value: string | null = null;
+
+	constructor(
+		app: App,
+		private readonly title: string,
+		private readonly initial: string,
+		private readonly check: (input: string) => { name: string } | { problem: string },
+		private readonly resolve: (value: string | null) => void,
+	) {
+		super(app);
+	}
+
+	onOpen(): void {
+		this.setTitle(this.title);
+		let input = this.initial;
+		let error: HTMLElement | null = null;
+		const submit = () => {
+			const result = this.check(input);
+			if ("problem" in result) {
+				error?.setText(result.problem);
+				return;
+			}
+			this.value = result.name;
+			this.close();
+		};
+		new Setting(this.contentEl).addText((text) => {
+			text.setValue(this.initial).onChange((value) => {
+				input = value;
+				error?.setText("");
+			});
+			text.inputEl.addClass("rock-prompt-input");
+			text.inputEl.addEventListener("keydown", (event) => {
+				if (event.key === "Enter") submit();
+			});
+			window.setTimeout(() => text.inputEl.select(), 0);
+		});
+		error = this.contentEl.createDiv({ cls: "rock-prompt-error mod-warning", attr: { role: "alert" } });
+		new Setting(this.contentEl)
+			.addButton((button) => button.setButtonText(t.cancel).onClick(() => this.close()))
+			.addButton((button) => button.setButtonText(t.ok).setCta().onClick(submit));
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+		this.resolve(this.value);
+	}
+}
+
+export function promptName(app: App, title: string, initial: string, check: (input: string) => { name: string } | { problem: string }): Promise<string | null> {
+	return new Promise((resolve) => new NamePromptModal(app, title, initial, check, resolve).open());
+}
+
 class ConfirmModal extends Modal {
 	private confirmed = false;
 

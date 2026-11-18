@@ -19,6 +19,7 @@ import type RockPlugin from "../main";
 import { errorMessage, pageColors, type RockSettings } from "../settings";
 import { pullMotion, type Rect } from "./liquid-motion";
 import { PdfPages } from "./pdf-pages";
+import { openUrl } from "../features/open-guard";
 
 export interface QuickLookRequest {
 	paper: Paper;
@@ -544,8 +545,8 @@ class Session {
 	private openInZotero(): void {
 		const annotation = this.annotation;
 		const attachment = this.targetAttachment();
-		if (annotation) window.open(annotation.zoteroUrl);
-		else if (attachment) window.open(openPdfUri(attachment.itemKey, { page: (this.request.page?.pageIndex ?? 0) + 1 }));
+		if (annotation) openUrl(annotation.zoteroUrl);
+		else if (attachment) openUrl(openPdfUri(attachment.itemKey, { page: (this.request.page?.pageIndex ?? 0) + 1 }));
 	}
 
 	private action(parent: HTMLElement, icon: string, label: string, onClick: () => void): void {

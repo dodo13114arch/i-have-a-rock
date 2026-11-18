@@ -5,10 +5,12 @@ import { AnnotationTemplates } from "./features/annotation-templates";
 import { EditorActions } from "./features/editor-actions";
 import { ImageExporter } from "./features/image-export";
 import { zoteroLinkFollower } from "./features/link-detector";
+import { LinkPreview } from "./features/link-preview-bubble";
+import { OpenGuard } from "./features/open-guard";
 import { PdfDocuments } from "./features/pdf-documents";
 import { setLanguage, t } from "./i18n";
 import { ROCK_ICON, ROCK_ICON_SVG } from "./icon";
-import { DEFAULT_SETTINGS, type RockData, RockSettingTab } from "./settings";
+import { migrateSettings, type RockData, RockSettingTab } from "./settings";
 import { PdfReaderView, READER_VIEW_TYPE, type ReaderState } from "./views/pdf-reader-view";
 import { QuickLook } from "./views/quick-look";
 import { RockView, VIEW_TYPE } from "./views/rock-view";
@@ -22,6 +24,8 @@ export default class RockPlugin extends Plugin {
 	pdfs!: PdfDocuments;
 	quickLook!: QuickLook;
 	templates!: AnnotationTemplates;
+	linkPreview!: LinkPreview;
+	private openGuard!: OpenGuard;
 
 	async onload(): Promise<void> {
 		await this.loadPluginData();
@@ -32,6 +36,26 @@ export default class RockPlugin extends Plugin {
 		this.pdfs = new PdfDocuments(this);
 		this.quickLook = new QuickLook(this);
 		this.templates = new AnnotationTemplates(this);
+		this.linkPreview = new LinkPreview(this);
+		this.openGuard = new OpenGuard((url) => this.linkPreview.swallowOpen(url));
+		// Clicks on links in reading view, and the opens that follow clicks on links, in the main window and in popouts.
+		const watch = (win: Window) => {
+			this.linkPreview.watch(win);
+			this.openGuard.patch(win);
+		};
+		watch(window);
+		this.registerEvent(this.app.workspace.on("window-open", (_, win) => watch(win)));
+		this.registerEvent(
+			this.app.workspace.on("window-close", (_, win) => {
+				this.linkPreview.unwatch(win);
+				this.openGuard.unpatch(win);
+			}),
+		);
+		// Popouts open before the plugin was.
+		this.app.workspace.onLayoutReady(() => this.app.workspace.iterateAllLeaves((leaf) => watch(leaf.view.containerEl.win)));
+		// Template files are read ahead, for dragging; again when Obsidian is back in front, for edits made elsewhere.
+		void this.templates.reload({ quiet: true });
+		this.registerDomEvent(window, "focus", () => void this.templates.reload({ quiet: true }));
 
 		this.registerView(VIEW_TYPE, (leaf) => new RockView(leaf, this));
 		this.registerView(READER_VIEW_TYPE, (leaf) => new PdfReaderView(leaf, this));
@@ -40,8 +64,14 @@ export default class RockPlugin extends Plugin {
 		this.registerEditorExtension([
 			zoteroLinkFollower((uri, line) => void this.followLink(uri, line)),
 			annotationDropHandler(),
+			this.linkPreview.extension(),
 		]);
-		this.registerEvent(this.app.workspace.on("active-leaf-change", (leaf) => this.editorActions.leafActivated(leaf)));
+		this.registerEvent(
+			this.app.workspace.on("active-leaf-change", (leaf) => {
+				this.editorActions.leafActivated(leaf);
+				this.linkPreview.hide();
+			}),
+		);
 		this.editorActions.leafActivated(this.app.workspace.getMostRecentLeaf());
 
 		this.addCommand({ id: "open-panel", name: t.openPanel, callback: () => void this.activateView() });
@@ -73,6 +103,9 @@ export default class RockPlugin extends Plugin {
 	}
 
 	onunload(): void {
+		this.openGuard.dispose();
+		this.linkPreview.dispose();
+		void this.templates.flush();
 		this.quickLook.close();
 		this.pdfs.dispose();
 		this.zotero.dispose();
@@ -81,7 +114,7 @@ export default class RockPlugin extends Plugin {
 	private async loadPluginData(): Promise<void> {
 		const stored = ((await this.loadData()) ?? {}) as Partial<RockData>;
 		this.data = {
-			settings: { ...DEFAULT_SETTINGS, ...stored.settings },
+			settings: migrateSettings(stored.settings),
 			serverId: stored.serverId,
 			view: { pinned: false, tab: "annotations", collapsedPapers: [], ...stored.view },
 			drafts: stored.drafts ?? {},

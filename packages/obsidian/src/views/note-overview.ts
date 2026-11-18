@@ -18,6 +18,7 @@ import { copyCitationFrom, copyToClipboard } from "./clipboard";
 import type { GlassLens } from "./glass-lens";
 import { bindPaperTitle } from "./paper-actions";
 import { fold, type FoldParts } from "./section-fold";
+import { openUrl } from "../features/open-guard";
 
 interface PaperGroup {
 	paperKey: string;
@@ -297,7 +298,7 @@ export class NoteOverview {
 			);
 			if (preview) menu.addItem((item) => item.setTitle(t.menuPreview).setIcon("eye").onClick(preview));
 			const uri = annotation?.zoteroUrl;
-			if (uri) menu.addItem((item) => item.setTitle(t.openInZotero).setIcon("external-link").onClick(() => window.open(uri)));
+			if (uri) menu.addItem((item) => item.setTitle(t.openInZotero).setIcon("external-link").onClick(() => openUrl(uri)));
 			if (uri) {
 				menu.addSeparator();
 				menu.addItem((item) => item.setTitle(t.menuCopyLink).setIcon("copy").onClick(() => copyToClipboard(uri)));

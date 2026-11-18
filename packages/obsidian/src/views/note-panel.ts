@@ -15,6 +15,7 @@ import { t } from "../i18n";
 import type RockPlugin from "../main";
 import { draftId, errorMessage, type NoteDraft } from "../settings";
 import { chooseConflict, confirm, promptText } from "./modals";
+import { openUrl } from "../features/open-guard";
 
 /**
  * contenteditable formatting. execCommand is deprecated but remains the only
@@ -187,7 +188,7 @@ export class NotePanel {
 			if (conflict) this.action(actions, "git-compare", t.compare, () => void this.resolveConflict(note.noteKey), busy);
 			this.action(actions, "trash-2", t.discardDraft, () => void this.discard(note.noteKey), busy);
 		}
-		this.action(actions, "external-link", t.openInZotero, () => window.open(`zotero://select/library/items/${note.noteKey}`));
+		this.action(actions, "external-link", t.openInZotero, () => openUrl(`zotero://select/library/items/${note.noteKey}`));
 	}
 
 	private action(parent: HTMLElement, icon: string, label: string, onClick: () => void, disabled = false, cta = false): void {

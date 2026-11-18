@@ -41,9 +41,10 @@ export function formatAnnotationQuote(annotation: Annotation, paper: PaperSummar
 	return lines.join("\n");
 }
 
-/** APA in-text citation: (Smith & Chen, 2020), (Smith et al., n.d.). */
-export function apaCitation(paper: Pick<PaperSummary, "citationAuthors" | "year">): string {
-	return `(${[paper.citationAuthors, paper.year ?? "n.d."].filter(Boolean).join(", ")})`;
+/** APA in-text citation: (Smith & Chen, 2020), (Smith et al., n.d.); with a page, (Smith & Chen, 2020, p. 5). */
+export function apaCitation(paper: Pick<PaperSummary, "citationAuthors" | "year">, pageLabel?: string): string {
+	const parts = [paper.citationAuthors, paper.year ?? "n.d.", pageLabel ? `p. ${pageLabel}` : undefined];
+	return `(${parts.filter(Boolean).join(", ")})`;
 }
 
 /** [Paper title (Smith et al., 2025)](zotero://select/…) — cites the whole paper. */
