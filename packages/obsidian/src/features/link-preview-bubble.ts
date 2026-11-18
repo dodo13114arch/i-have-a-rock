@@ -1,15 +1,15 @@
-// The link preview: a small glass card by a Zotero link in a note, with
-// "Quick Look" on it, showing the annotation's spot on its page, or for a
-// link to a paper (or a page of it) the top of that page. The card is the button:
-// clicked, it opens Quick Look on the annotation or page, grown out of the
-// card.
+// The link preview: a small flat pill of the panel's glass by a Zotero link
+// in a note, reading "Quick Look" (called the card throughout). Clicked, it
+// opens Quick Look on the link's annotation, or on its paper's page (the
+// first, for the paper itself), grown out of the pill. A link Quick Look
+// can't show (not found, a paper without a PDF) gets no pill.
 //
 // Cards are the "preview" choice of "linkClick". "none" catches clicks the
 // same way, with no card; "zotero" leaves clicks alone, with no card.
 //
 // It comes up for the caret resting on a link in an editor: at once when a
-// click put it there, after a moment when keys did; centered over the caret,
-// and moved along as the caret moves within the link, by keys or clicks
+// click put it there, after a moment when keys did; at the caret's upper
+// right, and moved along as the caret moves within the link, by keys or clicks
 // alike (see caretMoveOutcome). Only the user's own moves bring it up: not
 // the plugin's (going to a citation from the panel, inserting; see
 // moveCaretQuietly), which also hide it, nor any other move made without a
@@ -22,6 +22,19 @@
 // before the plugin can stop it, so the open itself is caught as well (see
 // OpenGuard): a press on a link tags it, and only that link's open, right
 // after, is swallowed.
+//
+// An image linked to Zotero ([![…](…)](zotero://…), as image annotations are
+// inserted) is clicked like a text link, with every setting: a click on the
+// image is Obsidian's image viewer's, or in live preview the editor's, and
+// would never reach the link around it (if there even is one: live preview
+// draws the image in place of its Markdown), so the image's clicks are taken
+// before either sees them. Zotero opens ("zotero"), or the card comes up at
+// the image's top-right corner ("preview"), or nothing happens ("none").
+//
+// It goes by itself a few seconds after it appears, unless the pointer is
+// on it (see pillLifetime); the caret moving within its link doesn't bring
+// it back, but arriving at a link (again) does, as does every click on a
+// link or image in a note.
 //
 // One card at a time, across all editors and windows. It goes when the note
 // is typed in or scrolled, the window is resized, Esc is pressed, another
@@ -42,12 +55,21 @@ import {
 	type ClickTag,
 	caretMoveOutcome,
 	catchesLinkClicks,
+	findImageLinkAt,
+	imageClickAction,
 	isLibraryLink,
+	LINK_PILL,
 	type Paper,
 	type ParsedZoteroUri,
 	type Placement,
 	parseZoteroUri,
 	placeCard,
+	placeOnImage,
+	PILL_FADE_MS,
+	type PillEvent,
+	type PillLife,
+	pillLifetime,
+	pillTimeLeft,
 	sameZoteroTarget,
 	shouldSwallowOpen,
 	showsLinkCards,
@@ -55,27 +77,22 @@ import {
 import { t } from "../i18n";
 import type RockPlugin from "../main";
 import { type LinkAtCursor, zoteroLinkAt, zoteroLinkAtCursor } from "./link-detector";
+import { openUrl } from "./open-guard";
 
-/**
- * The card's size where there is room for it, the least it shrinks to (in
- * proportion) where there isn't, its distance from the link's line and from
- * the editor's edges, in pixels. styles.css takes the size from the
- * --rock-link-preview-width and -height the card is given.
- */
-const CARD = { width: 112, height: 72, minWidth: 96, minHeight: 60, gap: 8, margin: 4 };
-/** The card's label, in its middle over the thumbnail: the same in every language. */
+/** The pill's text: the same in every language. */
 const LABEL = "Quick Look";
 /** How long the caret, moved by keys, must rest on a link for its card. Put there by a click, it shows at once. */
 const CARET_SETTLE_MS = 120;
-/** Thumbnails are drawn at the screen's pixel density, but at least this sharp and at most this costly. */
-const MIN_DENSITY = 1.5;
-const MAX_DENSITY = 2.5;
-/** Thumbnails kept for links visited again. */
-const THUMBNAILS_KEPT = 24;
 /** Links rendered as elements: reading view, and rendered parts of live preview (tables, callouts). */
 const RENDERED = ".markdown-preview-view, .markdown-rendered";
 /** The plugin's own panel and Quick Look, whose links are left alone. */
 const OWN = ".rock-view, .rock-quicklook";
+/**
+ * The events of a click on a linked image, all kept from the image (and the
+ * editor around it): Obsidian's image viewer, or the editor selecting the
+ * image's Markdown, would otherwise come of one of them.
+ */
+const IMAGE_EVENTS = ["pointerdown", "mousedown", "pointerup", "mouseup", "click", "dblclick"] as const;
 
 /** What a link shows: an annotation, or a page of a paper's PDF (the first, for the paper itself). */
 type Target =
@@ -127,12 +144,15 @@ export class LinkPreview {
 	private token = 0;
 	/** While the card is pressed, the editor losing focus doesn't hide it. */
 	pressing = false;
+	/** The shown pill's life (see pillLifetime), and the timer for its next step, in the pill's window. */
+	private life: PillLife = { state: "dismissed" };
+	private lifeTimer: { win: Window; id: number } | null = null;
+	/** A caret's pill that went by itself: not shown again while the caret stays in its link. */
+	private dismissed: { view: EditorView; from: number } | null = null;
 	/** The last press on a link, for the open that may follow it. */
 	private tagged: Tagged | null = null;
 	/** Item key → its paper's key (and the attachment or annotation it is), so a link is looked up in Zotero once. */
 	private readonly resolved = new Map<string, { paperKey: string; attachmentKey?: string; annotationKey?: string }>();
-	/** Thumbnails as object URLs, by what they show and their size; oldest first. */
-	private readonly thumbnails = new Map<string, string>();
 	private readonly watched: Watched[] = [];
 
 	constructor(private readonly plugin: RockPlugin) {}
@@ -154,9 +174,62 @@ export class LinkPreview {
 
 	hide(): void {
 		this.token++;
+		this.stopLifeTimer();
+		this.life = { state: "dismissed" };
 		this.current?.el?.remove();
 		this.current = null;
 		this.pressing = false;
+	}
+
+	/**
+	 * The shown pill's life takes a step (see pillLifetime): its timer is set
+	 * for the next one, or it goes, fading out.
+	 */
+	private live(event: PillEvent): void {
+		const current = this.current;
+		const el = current?.el;
+		if (!current || !el) return;
+		this.stopLifeTimer();
+		this.life = pillLifetime(this.life, event);
+		const win = el.ownerDocument.defaultView ?? activeWindow;
+		if (this.life.state === "dismissed") {
+			this.dismiss(current, el, win);
+			return;
+		}
+		const left = pillTimeLeft(this.life, Date.now());
+		if (left !== null) this.lifeTimer = { win, id: win.setTimeout(() => this.live({ type: "tick", now: Date.now() }), left) };
+	}
+
+	/** The pill's time is up: it fades out and goes (at once, with reduced motion), and a caret's isn't shown again on its link. */
+	private dismiss(current: Current, el: HTMLElement, win: Window): void {
+		if (current.trigger === "caret" && current.view) this.dismissed = { view: current.view, from: current.from };
+		if (win.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+			this.hide();
+			return;
+		}
+		el.addClass("is-leaving");
+		const token = this.token;
+		this.lifeTimer = { win, id: win.setTimeout(() => token === this.token && this.hide(), PILL_FADE_MS) };
+	}
+
+	private stopLifeTimer(): void {
+		if (this.lifeTimer) this.lifeTimer.win.clearTimeout(this.lifeTimer.id);
+		this.lifeTimer = null;
+	}
+
+	/** Whether the caret's pill for the link at `from` in this editor went by itself, the caret not having left that link since. */
+	isDismissed(view: EditorView, from: number): boolean {
+		return this.dismissed?.view === view && this.dismissed.from === from;
+	}
+
+	/**
+	 * The caret moved, or the note changed (`edited`): a pill that went by
+	 * itself comes again once the caret has left its link (and come back).
+	 */
+	forgetDismissed(view: EditorView, edited = false): void {
+		const dismissed = this.dismissed;
+		if (dismissed?.view !== view) return;
+		if (edited || zoteroLinkAtCursor(view)?.from !== dismissed.from) this.dismissed = null;
 	}
 
 	/** Hides the card if its link is in this editor. */
@@ -211,15 +284,13 @@ export class LinkPreview {
 		});
 	}
 
-	/** Shows the card by the link the caret rests on, centered over the caret. */
+	/** Shows the card by the link the caret rests on, at the caret's upper right (see placeCard). */
 	showAtCaret(view: EditorView, found: LinkAtCursor): void {
 		const place = (): Placement | null => {
-			const start = view.coordsAtPos(found.from, 1);
-			const end = view.coordsAtPos(found.to, -1);
-			if (!start || !end) return null;
-			const anchor = { left: start.left, right: end.right, top: Math.min(start.top, end.top), bottom: Math.max(start.bottom, end.bottom) };
-			const caret = view.coordsAtPos(view.state.selection.main.head);
-			return placeCard(anchor, view.scrollDOM.getBoundingClientRect(), CARD, caret?.left ?? anchor.right);
+			// The caret's line of the link; the link's end, should the caret have no place on screen.
+			const caret = view.coordsAtPos(view.state.selection.main.head) ?? view.coordsAtPos(found.to, -1);
+			if (!caret) return null;
+			return placeCard(caret, view.scrollDOM.getBoundingClientRect(), LINK_PILL, caret.left);
 		};
 		void this.show(
 			{ trigger: "caret", view, from: found.from, link: null, uri: found.link.uri, place, el: null },
@@ -227,17 +298,23 @@ export class LinkPreview {
 		);
 	}
 
-	/** Shows the card by a clicked link element, on the line of it that was clicked, centered on the click. */
+	/**
+	 * Shows the card by a clicked link element, on the line of it that was
+	 * clicked, at the click's upper right as at a caret's (see placeCard); by
+	 * a clicked linked image, at the image's top-right corner (see
+	 * placeOnImage).
+	 */
 	private showAtLink(link: HTMLElement, uri: ParsedZoteroUri, clickX: number, clickY: number): void {
+		const image = link.tagName === "IMG";
 		const place = (): Placement | null => {
-			// Redrawn (a rendered part of live preview): no longer anywhere.
+			// Redrawn (a rendered part of live preview, an image's widget): no longer anywhere.
 			if (!link.isConnected) return null;
-			const rects = [...link.getClientRects()];
-			const line = rects.find((rect) => clickY >= rect.top && clickY <= rect.bottom) ?? link.getBoundingClientRect();
 			const win = link.ownerDocument.defaultView ?? activeWindow;
 			const scroller = link.closest(".markdown-preview-view, .cm-scroller");
 			const bounds = scroller?.getBoundingClientRect() ?? { left: 0, top: 0, right: win.innerWidth, bottom: win.innerHeight };
-			return placeCard(line, bounds, CARD, Math.min(Math.max(clickX, line.left), line.right));
+			if (image) return placeOnImage(link.getBoundingClientRect(), bounds, LINK_PILL);
+			const line = [...link.getClientRects()].find((rect) => clickY >= rect.top && clickY <= rect.bottom) ?? link.getBoundingClientRect();
+			return placeCard(line, bounds, LINK_PILL, Math.min(Math.max(clickX, line.left), line.right));
 		};
 		const editor = link.closest(".cm-editor");
 		const view = editor?.instanceOf(HTMLElement) ? EditorView.findFromDOM(editor) : null;
@@ -257,26 +334,11 @@ export class LinkPreview {
 			return;
 		}
 		const doc = (current.link ?? current.view?.dom)?.ownerDocument ?? activeDocument;
-		const el = this.createCard(doc, place, target);
-		current.el = el;
-
-		const density = Math.min(MAX_DENSITY, Math.max(MIN_DENSITY, doc.defaultView?.devicePixelRatio ?? 1));
-		const width = Math.round(place.width * density);
-		const height = Math.round(place.height * density);
-		// A failed thumbnail leaves the icon.
-		const url = await this.thumbnail(target, width, height).catch(() => null);
-		if (token !== this.token) return;
-		// Quick Look's pages after the thumbnail, which would otherwise wait for them.
+		current.el = this.createCard(doc, place, target);
+		this.live({ type: "shown", now: Date.now() });
+		// Quick Look's pages, drawn ahead so it opens at once if the pill is clicked.
 		if (target.kind === "annotation") this.plugin.quickLook.prepare(target.annotation);
 		else this.plugin.quickLook.preparePage(target.attachment.itemKey, target.pageIndex);
-		if (!url) return;
-		const img = doc.createElement("img");
-		img.setAttribute("alt", "");
-		img.setAttribute("draggable", "false");
-		img.addEventListener("load", () => el.addClass("has-thumbnail"), { once: true });
-		img.src = url;
-		// Under the glass.
-		el.prepend(img);
 	}
 
 	/** What a link points to, with its paper, from the panel's cache where it can. */
@@ -305,7 +367,7 @@ export class LinkPreview {
 		return find(await zotero.getPaper(resolved.paperKey, { force: true }));
 	}
 
-	/** The card, in the link's window: a thumbnail under a pane of the panel's glass, its label over that. */
+	/** The pill, in the link's window: "Quick Look" on a piece of the panel's glass. */
 	private createCard(doc: Document, place: Placement, target: Target): HTMLElement {
 		const win = doc.defaultView ?? activeWindow;
 		const el = doc.createElement("div");
@@ -313,10 +375,11 @@ export class LinkPreview {
 		el.setAttribute("role", "button");
 		el.setAttribute("aria-label", t.linkPreview);
 		position(el, place);
-		// While there is no thumbnail (yet), or when there is none, the label alone.
+		el.setCssProps({ "--rock-link-preview-fade": `${PILL_FADE_MS}ms` });
+		// The glass over the pill's own background, which keeps the note's text from showing through.
 		el.appendChild(doc.createElement("span")).addClasses(["rock-glass", "rock-link-preview-glass"]);
 		const label = el.appendChild(doc.createElement("span"));
-		label.addClasses(["rock-glass", "rock-link-preview-label"]);
+		label.addClass("rock-link-preview-label");
 		label.setText(LABEL);
 
 		// The editor keeps the focus, and its caret stays where it is.
@@ -325,6 +388,9 @@ export class LinkPreview {
 			this.pressing = true;
 			win.addEventListener("mouseup", () => (this.pressing = false), { once: true });
 		});
+		// The pointer on it holds it; leaving, it stays a little longer.
+		el.addEventListener("mouseenter", () => this.current?.el === el && this.live({ type: "enter" }));
+		el.addEventListener("mouseleave", () => this.current?.el === el && this.live({ type: "leave", now: Date.now() }));
 		el.addEventListener("click", (event) => {
 			event.preventDefault();
 			const origin = el.getBoundingClientRect();
@@ -352,50 +418,6 @@ export class LinkPreview {
 			page: { attachmentKey: attachment.itemKey, pageIndex },
 			origin: () => origin,
 		});
-	}
-
-	/**
-	 * The thumbnail, `width` × `height` pixels: the annotation marked on its
-	 * page (for an image annotation whose PDF can't be drawn, Zotero's picture
-	 * of it), or the top of the page.
-	 */
-	private async thumbnail(target: Target, width: number, height: number): Promise<string | null> {
-		const id =
-			target.kind === "annotation"
-				? `${target.annotation.annotationKey}:${target.annotation.version}:${width}x${height}`
-				: `page:${target.attachment.itemKey}:${target.pageIndex}:${width}x${height}`;
-		const cached = this.thumbnails.get(id);
-		if (cached) {
-			// Most recently used last.
-			this.thumbnails.delete(id);
-			this.thumbnails.set(id, cached);
-			return cached;
-		}
-		const pdfs = this.plugin.pdfs;
-		let blob: Blob | null = null;
-		const canvas = await (
-			target.kind === "annotation"
-				? pdfs.renderThumbnail(target.annotation, width, height)
-				: pdfs.renderPageTop(target.attachment.itemKey, target.pageIndex, width, height)
-		).catch(() => null);
-		if (canvas) {
-			blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
-			canvas.width = 0;
-		} else if (target.kind === "annotation" && target.annotation.type === "image") {
-			const bytes = await this.plugin.images.readCachedImage(target.annotation.annotationKey);
-			if (bytes) blob = new Blob([bytes], { type: "image/png" });
-		}
-		if (!blob) return null;
-		// Another lookup may have made it meanwhile.
-		const existing = this.thumbnails.get(id);
-		if (existing) return existing;
-		const url = URL.createObjectURL(blob);
-		this.thumbnails.set(id, url);
-		for (const [oldId, oldUrl] of [...this.thumbnails].slice(0, -THUMBNAILS_KEPT)) {
-			URL.revokeObjectURL(oldUrl);
-			this.thumbnails.delete(oldId);
-		}
-		return url;
 	}
 
 	// --- Opening caught at the last step (see OpenGuard) ------------------------
@@ -434,12 +456,47 @@ export class LinkPreview {
 		view.dispatch({ selection: { anchor: tagged.pos }, userEvent: "select.pointer" });
 	}
 
+	// --- Images linked to Zotero -------------------------------------------------
+
+	/**
+	 * Each event of a plain click on an image linked to a library item, in a
+	 * note: kept from the image, and from the editor around it, so neither
+	 * Obsidian's image viewer nor the editor (selecting the image's Markdown)
+	 * acts on it. The click itself does what a click on a text link does with
+	 * the same setting (see imageClickAction); in live preview the caret
+	 * stays where it is, and the image stays drawn.
+	 */
+	private imageEvent(event: MouseEvent, win: Window): void {
+		const image = linkedImage(event);
+		if (!image) return;
+		// Not the pointer events' default: that would leave out the mouse events, the press below among them.
+		if (event.type.startsWith("pointer")) event.stopImmediatePropagation();
+		else stop(event);
+		if (event.type === "mousedown") {
+			this.tag({ uri: image.uri, time: Date.now(), view: null, pos: -1, link: image.el, x: event.clientX, y: event.clientY });
+			// A click elsewhere: any other card goes.
+			if (this.current && this.current.link !== image.el) this.hide();
+			return;
+		}
+		if (event.type !== "click") return;
+		const action = imageClickAction(this.plugin.data.settings);
+		if (action === "open") openUrl(image.url, win);
+		// Each click is a new arrival: the pill already by this image starts its time over.
+		else if (action === "card" && this.current?.link === image.el) this.live({ type: "shown", now: Date.now() });
+		else if (action === "card") this.showAtLink(image.el, image.uri, event.clientX, event.clientY);
+	}
+
 	// --- Links rendered as elements (reading view) ------------------------------
 
-	/** Watches clicks on rendered links in a window (the main one, or a popout), and what hides their card. */
+	/**
+	 * Watches clicks on rendered links and on linked images in a window (the
+	 * main one, or a popout), and what hides their card.
+	 */
 	watch(win: Window): void {
 		if (this.watched.some((watched) => watched.win === win)) return;
 		const doc = win.document;
+		// On the window, ahead of anything in the document.
+		const onImage = (event: MouseEvent) => this.imageEvent(event, win);
 		const onPress = (event: MouseEvent) => {
 			const current = this.current;
 			const target = event.target;
@@ -468,6 +525,7 @@ export class LinkPreview {
 			if (event.key === "Escape") this.hide();
 		};
 		const onAway = () => this.hide();
+		for (const type of IMAGE_EVENTS) win.addEventListener(type, onImage, { capture: true });
 		doc.addEventListener("mousedown", onPress, { capture: true });
 		doc.addEventListener("click", onClick, { capture: true });
 		doc.addEventListener("scroll", onScroll, { capture: true, passive: true });
@@ -477,6 +535,7 @@ export class LinkPreview {
 		this.watched.push({
 			win,
 			stop: () => {
+				for (const type of IMAGE_EVENTS) win.removeEventListener(type, onImage, { capture: true });
 				doc.removeEventListener("mousedown", onPress, { capture: true });
 				doc.removeEventListener("click", onClick, { capture: true });
 				doc.removeEventListener("scroll", onScroll, { capture: true });
@@ -499,10 +558,9 @@ export class LinkPreview {
 
 	dispose(): void {
 		this.hide();
+		this.dismissed = null;
 		this.tagged = null;
 		for (const watched of this.watched.splice(0)) watched.stop();
-		for (const url of this.thumbnails.values()) URL.revokeObjectURL(url);
-		this.thumbnails.clear();
 	}
 }
 
@@ -525,7 +583,8 @@ export function moveCaretQuietly<T>(move: () => T): T {
 }
 
 function position(el: HTMLElement, place: Placement): void {
-	el.toggleClass("is-below", place.below);
+	// The corner it grows out of; moved along, it changes without growing again.
+	el.setAttribute("data-origin", place.origin);
 	el.setCssStyles({ left: `${place.left}px`, top: `${place.top}px` });
 	el.setCssProps({ "--rock-link-preview-width": `${place.width}px`, "--rock-link-preview-height": `${place.height}px` });
 }
@@ -550,6 +609,47 @@ function renderedLink(event: MouseEvent): { el: HTMLElement; uri: ParsedZoteroUr
 	if (!link?.closest(RENDERED) || link.closest(OWN)) return null;
 	const uri = parseZoteroUri(link.getAttribute("href") ?? "");
 	return uri && isLibraryLink(uri) ? { el: link, uri } : null;
+}
+
+/** A plain click's image linked to a library item, in a note (not in the panel or Quick Look): the image, and its link's URI as written. */
+function linkedImage(event: MouseEvent): { el: HTMLElement; uri: ParsedZoteroUri; url: string } | null {
+	if (!isPlainClick(event)) return null;
+	const target = elementOf(event.target);
+	const embed = target?.closest(".image-embed") ?? null;
+	const img = target?.closest("img") ?? embed?.querySelector("img");
+	if (!img || img.closest(OWN) || !img.closest(`${RENDERED}, .cm-editor`)) return null;
+	const url = imageLinkUrl(img, embed ?? img.closest(".internal-embed"));
+	const uri = url ? parseZoteroUri(url) : null;
+	return url && uri && isLibraryLink(uri) ? { el: img, uri, url } : null;
+}
+
+/**
+ * The URL an image links to: the link around it; in rendered Markdown, an
+ * empty Zotero link right by its embed; in an editor, where an image is
+ * drawn in place of its Markdown and no link may be around it, the Zotero
+ * link around that Markdown, [![…](…)](zotero://…).
+ */
+function imageLinkUrl(img: HTMLElement, embed: Element | null): string | null {
+	const around = img.closest("a");
+	if (around) return around.getAttribute("href");
+	const box = embed ?? img;
+	for (const sibling of [box.previousElementSibling, box.nextElementSibling]) {
+		const href = sibling?.tagName === "A" && !sibling.textContent?.trim() ? sibling.getAttribute("href") : null;
+		if (href?.startsWith("zotero://")) return href;
+	}
+	const editor = img.closest(".cm-editor");
+	// A rendered part of live preview (a table, a callout) is one place in the document, not the image's.
+	if (!editor?.instanceOf(HTMLElement) || img.closest(RENDERED)) return null;
+	const view = EditorView.findFromDOM(editor);
+	if (!view) return null;
+	try {
+		const pos = view.posAtDOM(box);
+		const line = view.state.doc.lineAt(pos);
+		return findImageLinkAt(line.text, pos - line.from)?.url ?? null;
+	} catch {
+		// Not in the editor's document after all.
+		return null;
+	}
 }
 
 /** Keeps a click from opening the link, or from reaching anything else. */
@@ -591,11 +691,15 @@ function caretWatcher(preview: LinkPreview): Extension {
 			}
 
 			update(update: ViewUpdate) {
-				if (update.docChanged) preview.hideIn(this.view);
+				if (update.docChanged) {
+					preview.hideIn(this.view);
+					preview.forgetDismissed(this.view, true);
+				}
 				else if (update.geometryChanged) preview.relayout(this.view);
 				// Left for something else: a caret card.
 				if (update.focusChanged && !update.view.hasFocus && !preview.pressing) preview.hideCaretIn(this.view);
 				if (!update.selectionSet) return;
+				preview.forgetDismissed(this.view);
 				if (this.timer !== null) this.win.clearTimeout(this.timer);
 				this.timer = null;
 				const moves = update.transactions.filter((transaction) => transaction.selection);
@@ -653,7 +757,7 @@ function caretWatcher(preview: LinkPreview): Extension {
 					preview.hideCaretIn(this.view);
 					return;
 				}
-				if (preview.isCaretFor(this.view, found.from)) return;
+				if (preview.isCaretFor(this.view, found.from) || preview.isDismissed(this.view, found.from)) return;
 				preview.showAtCaret(this.view, found);
 			}
 

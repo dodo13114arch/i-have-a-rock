@@ -1528,8 +1528,8 @@ button.rock-color-dot.is-active:not(.clickable-icon) {
 }
 
 /*
- * Liquid glass, as the selection lens in the panel and over the link card's
- * thumbnail: clear in the middle so what is under it stays crisp; a soft
+ * Liquid glass, as the selection lens in the panel and the link's "Quick
+ * Look" pill: clear in the middle so what is under it stays crisp; a soft
  * highlight from the top left, a bright rim, and what is under it slightly
  * brightened and more saturated, like looking through a lens. No blur.
  */
@@ -1576,14 +1576,15 @@ button.rock-color-dot.is-active:not(.clickable-icon) {
 	opacity: 0;
 }
 
-/* --- Link preview: a card by the annotation link the caret rests on, or that was clicked --- */
+/* --- Link preview: a pill by the link the caret rests on, or the link or linked image that was clicked --- */
 
 /*
  * As large as LinkPreview places it (--rock-link-preview-width and -height,
- * 112×72px where there is room): a thumbnail filling the card, under a pane
- * of the panel's glass, rounded like the panel's cards, with a small
- * "Quick Look" pill of the same glass in its middle. The whole card is the
- * button. Under modals and Quick Look.
+ * 84×24px): "Quick Look" on a piece of the panel's glass (.rock-glass, as the
+ * selection lens: its rim, light and shadow), rounded and lettered as the
+ * panel's pills (the collect chips), over the note's background so the text
+ * under it doesn't show through. The whole pill is the button. Under modals
+ * and Quick Look.
  */
 .rock-link-preview {
 	position: fixed;
@@ -1593,26 +1594,33 @@ button.rock-color-dot.is-active:not(.clickable-icon) {
 	justify-content: center;
 	width: var(--rock-link-preview-width);
 	height: var(--rock-link-preview-height);
-	overflow: hidden;
-	border-radius: var(--radius-m);
+	border-radius: var(--radius-l);
 	background-color: var(--background-primary);
 	color: var(--text-muted);
-	box-shadow: var(--shadow-s);
+	font-size: var(--font-ui-small);
 	cursor: pointer;
 	user-select: none;
 	opacity: 0;
 	transform: scale(0.85);
-	/* Grows out of the link: from its bottom when above it, from its top when below. */
-	transform-origin: 50% 100%;
+	/* Grows out of its corner nearest the caret or image (data-origin, set as placed): bottom left by default. */
+	transform-origin: 0 100%;
 	transition:
 		opacity 140ms ease-out,
 		transform 160ms ease-out,
-		box-shadow 120ms ease-out,
+		color 120ms ease-out,
 		filter 120ms ease-out;
 }
 
-.rock-link-preview.is-below {
-	transform-origin: 50% 0;
+.rock-link-preview[data-origin="bottom-right"] {
+	transform-origin: 100% 100%;
+}
+
+.rock-link-preview[data-origin="top-left"] {
+	transform-origin: 0 0;
+}
+
+.rock-link-preview[data-origin="top-right"] {
+	transform-origin: 100% 0;
 }
 
 .rock-link-preview.is-shown {
@@ -1620,57 +1628,38 @@ button.rock-color-dot.is-active:not(.clickable-icon) {
 	transform: none;
 }
 
-/* Hovered: lifted a little, and brighter. */
+/* Its time up: fades out (over --rock-link-preview-fade, set with the pill), and can no longer be hovered or pressed. */
+.rock-link-preview.is-shown.is-leaving {
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity var(--rock-link-preview-fade) ease-in;
+}
+
+/* Hovered: lifted a little, brighter, its text as a hovered chip's. */
 .rock-link-preview.is-shown:hover {
-	box-shadow: var(--shadow-l);
+	color: var(--text-normal);
 	filter: brightness(1.04);
 	transform: translateY(-1px);
 }
 
 /* Pressed: back down. */
 .rock-link-preview.is-shown:active {
-	box-shadow: var(--shadow-s);
 	filter: brightness(0.97);
 	transform: scale(0.98);
 }
 
-/*
- * In the middle, over the thumbnail and the glass: one short line of small
- * text on a pill of the same glass, a little more opaque so it reads on any
- * page (two classes: over the dark theme's glass too). Not a target of its
- * own, and not selectable.
- */
-.rock-link-preview .rock-link-preview-label {
+/* One line, over the glass; not a target of its own, and not selectable. */
+.rock-link-preview-label {
 	position: relative;
-	max-width: calc(100% - 12px);
-	padding: 1px 8px;
+	max-width: calc(100% - 2 * var(--size-2-3));
 	overflow: hidden;
-	border-radius: var(--radius-l);
-	background-color: color-mix(in srgb, var(--background-primary) 72%, transparent);
-	font-size: var(--font-ui-smaller);
-	line-height: 1.4;
-	color: var(--text-muted);
 	white-space: nowrap;
 	text-overflow: ellipsis;
 	pointer-events: none;
 	user-select: none;
 }
 
-.rock-link-preview img {
-	position: absolute;
-	inset: 0;
-	display: none;
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
-	pointer-events: none;
-}
-
-.rock-link-preview.has-thumbnail img {
-	display: block;
-}
-
-/* The glass covers the whole card, over the thumbnail; clicks go through to the card. */
+/* The glass covers the whole pill; clicks go through to the pill. */
 .rock-link-preview-glass {
 	position: absolute;
 	inset: 0;

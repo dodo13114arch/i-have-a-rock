@@ -13,3 +13,4 @@ export * from "./annotation-template";
 export * from "./floating-placement";
 export * from "./template-name";
 export * from "./link-click";
+export * from "./pill-lifetime";
