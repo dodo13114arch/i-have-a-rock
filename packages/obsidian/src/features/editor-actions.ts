@@ -2,17 +2,12 @@
 // single editor transaction, so one Undo reverts it.
 
 import { type Editor, MarkdownView, Notice, type WorkspaceLeaf } from "obsidian";
-import {
-	type Annotation,
-	type PaperSummary,
-	formatAnnotationLink,
-	formatAnnotationQuote,
-	formatImageLink,
-	linkSelectedText,
-} from "@i-have-a-rock/core";
+import { type Annotation, type PaperSummary, linkSelectedText, renderSingleAnnotation } from "@i-have-a-rock/core";
 import { t } from "../i18n";
 import type RockPlugin from "../main";
 import { errorMessage } from "../settings";
+import { type AnnotationTemplate, templateOptions } from "./annotation-templates";
+import { moveCaretQuietly } from "./link-preview-bubble";
 
 /** Drag data type for annotations, so editor drops can be told apart from other text. */
 export const DROP_MIME = "application/x-i-have-a-rock";
@@ -63,10 +58,9 @@ export class EditorActions {
 		return null;
 	}
 
-	private textMarkdown(annotation: Annotation, paper: PaperSummary): string {
-		return this.plugin.data.settings.insertFormat === "quote"
-			? formatAnnotationQuote(annotation, paper)
-			: formatAnnotationLink(annotation);
+	/** The annotation by the format chosen for a single annotation, linked to Zotero. */
+	private render(annotation: Annotation, paper: PaperSummary, template: AnnotationTemplate): DropPayload {
+		return renderSingleAnnotation(annotation, paper, template, templateOptions(true));
 	}
 
 	/**
@@ -79,10 +73,9 @@ export class EditorActions {
 			void this.plugin.images.exportToVault(annotation, sourcePath).catch((error: unknown) => {
 				new Notice(t.imageExportFailed + errorMessage(error));
 			});
-			return { markdown: formatImageLink(annotation), block: true };
 		}
-		const quote = this.plugin.data.settings.insertFormat === "quote";
-		return { markdown: this.textMarkdown(annotation, paper), block: quote };
+		// Dragging can't wait for a file: the templates as known now, read again when pressed (see refreshIfStale).
+		return this.render(annotation, paper, this.plugin.templates.singleTemplate());
 	}
 
 	private async insertAnnotation(view: MarkdownView, annotation: Annotation, paper: PaperSummary): Promise<void> {
@@ -93,12 +86,10 @@ export class EditorActions {
 				new Notice(t.imageExportFailed + errorMessage(error));
 				return;
 			}
-			insertBlock(view.editor, formatImageLink(annotation));
-		} else if (this.plugin.data.settings.insertFormat === "quote") {
-			insertBlock(view.editor, this.textMarkdown(annotation, paper));
-		} else {
-			insertInline(view.editor, formatAnnotationLink(annotation));
 		}
+		const { markdown, block } = this.render(annotation, paper, this.plugin.templates.singleTemplate());
+		if (block) insertBlock(view.editor, markdown);
+		else insertInline(view.editor, markdown);
 	}
 
 	/**
@@ -121,7 +112,7 @@ export class EditorActions {
 			new Notice(t.selectionNotLinkable);
 			return;
 		}
-		editor.replaceSelection(linked);
+		moveCaretQuietly(() => editor.replaceSelection(linked));
 		editor.focus();
 		new Notice(t.linked);
 	}
@@ -131,7 +122,7 @@ export class EditorActions {
 function insertInline(editor: Editor, text: string): void {
 	const at = editor.getCursor("to");
 	const end = editor.offsetToPos(editor.posToOffset(at) + text.length);
-	editor.transaction({ changes: [{ from: at, text }], selection: { from: end } });
+	moveCaretQuietly(() => editor.transaction({ changes: [{ from: at, text }], selection: { from: end } }));
 	editor.focus();
 }
 
@@ -142,6 +133,6 @@ function insertBlock(editor: Editor, text: string): void {
 	const at = { line: cursor.line, ch: line.length };
 	const insertion = blockInsertion(line, text);
 	const end = editor.offsetToPos(editor.posToOffset(at) + insertion.length);
-	editor.transaction({ changes: [{ from: at, text: insertion }], selection: { from: end } });
+	moveCaretQuietly(() => editor.transaction({ changes: [{ from: at, text: insertion }], selection: { from: end } }));
 	editor.focus();
 }

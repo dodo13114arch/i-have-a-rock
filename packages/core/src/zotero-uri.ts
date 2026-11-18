@@ -51,6 +51,14 @@ export function parseZoteroUri(uri: string): ParsedZoteroUri | null {
 	return parsed;
 }
 
+/**
+ * A link to one annotation in the local user library: what the link preview
+ * can show. Group links are skipped, as the panel does.
+ */
+export function isAnnotationLink(uri: ParsedZoteroUri): uri is ParsedZoteroUri & { annotationKey: string } {
+	return uri.library.type === "user" && Boolean(uri.annotationKey);
+}
+
 // [text](zotero://…) | [![](image.png)](zotero://…) | <zotero://…> | bare zotero://…
 const LINK_IN_TEXT =
 	/\[((?:\\.|!\[[^\]]*\]\([^)]*\)|[^\]\\])*)\]\((zotero:\/\/[^)\s]+)\)|<(zotero:\/\/[^>\s]+)>|(zotero:\/\/[^\s)\]>"']+)/gi;

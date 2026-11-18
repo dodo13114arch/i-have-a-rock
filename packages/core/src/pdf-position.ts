@@ -63,3 +63,41 @@ export function pathBounds(paths: readonly number[][]): PdfRect | null {
 	}
 	return boundingRect(rects);
 }
+
+export interface ThumbnailLimits {
+	/** Room left around the annotation on each side. */
+	padding: number;
+	/** The area's narrowest and widest. */
+	minWidth: number;
+	maxWidth: number;
+}
+
+/**
+ * An area around an annotation, for a thumbnail `aspect` times as wide as it
+ * is high, all in PDF points: wide enough for the annotation plus padding
+ * both ways, within the limits, centered on it, and moved to lie within the
+ * page (`page`, as pdf.js's page.view) where the page is large enough.
+ */
+export function thumbnailRect(bounds: PdfRect, page: PdfRect, limits: ThumbnailLimits, aspect: number): PdfRect {
+	const wanted = Math.max(bounds[2] - bounds[0] + 2 * limits.padding, (bounds[3] - bounds[1] + 2 * limits.padding) * aspect);
+	const width = Math.min(limits.maxWidth, Math.max(limits.minWidth, wanted));
+	const height = width / aspect;
+	const place = (center: number, low: number, high: number, side: number) => {
+		if (high - low <= side) return low + (high - low - side) / 2;
+		return Math.min(Math.max(center - side / 2, low), high - side);
+	};
+	const x = place((bounds[0] + bounds[2]) / 2, page[0], page[2], width);
+	const y = place((bounds[1] + bounds[3]) / 2, page[1], page[3], height);
+	return [x, y, x + width, y + height];
+}
+
+/**
+ * The top of a page (`page`, as pdf.js's page.view), its full width, in a
+ * frame `aspect` times as wide as it is high: a whole paper's thumbnail. The
+ * whole page when it is wider than that.
+ */
+export function pageTopRect(page: PdfRect, aspect: number): PdfRect {
+	const width = page[2] - page[0];
+	const height = Math.min(page[3] - page[1], width / aspect);
+	return [page[0], page[3] - height, page[2], page[3]];
+}

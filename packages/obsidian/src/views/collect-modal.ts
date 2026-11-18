@@ -9,18 +9,17 @@ import {
 	type Annotation,
 	type AnnotationOrder,
 	type Paper,
-	annotationContent,
-	citationLabel,
 	collectNote,
 	compareAnnotations,
 	sortAnnotations,
+	templateValues,
 } from "@i-have-a-rock/core";
-import type { AnnotationTemplate } from "../features/annotation-templates";
+import { type AnnotationTemplate, colorName, templateOptions } from "../features/annotation-templates";
 import { t } from "../i18n";
 import type RockPlugin from "../main";
 import { type CollectTime, errorMessage } from "../settings";
 import { TYPE_ICONS, TYPE_LABELS } from "./annotation-list";
-import { formatWhen, localDate, localTime, startOfDay } from "./annotation-time";
+import { formatWhen, startOfDay } from "./annotation-time";
 import { colorDot } from "./annotation-tools";
 
 /** Characters a file name can't have on some system, or that break links to it. */
@@ -192,23 +191,6 @@ export class CollectModal extends Modal {
 		return null;
 	}
 
-	/** The template's {{variables}} for an annotation. */
-	private values(annotation: Annotation): Record<string, string> {
-		const made = annotation.dateAdded ? new Date(annotation.dateAdded) : null;
-		const color = colorOf(annotation);
-		return {
-			text: annotationContent(annotation, this.link),
-			// A note annotation's comment is its text, already in {{text}}.
-			comment: annotation.type === "note" ? "" : (annotation.comment?.trim() ?? ""),
-			page: annotation.pageLabel ?? "",
-			citation: citationLabel(this.paper),
-			color: color ? colorName(color) : "",
-			type: TYPE_LABELS[annotation.type](),
-			date: made ? localDate(made) : "",
-			time: made ? localTime(made) : "",
-		};
-	}
-
 	/** "Emergent Correspondence from Image Diffusion — 紅色底線". */
 	private autoName(): string {
 		const colors = this.colors.size === this.presentColors.length ? [] : this.presentColors.filter((hex) => this.colors.has(hex)).map(colorName);
@@ -255,7 +237,7 @@ export class CollectModal extends Modal {
 				await this.plugin.images.exportToVault(annotation, path).catch(() => skipped.add(annotation.annotationKey));
 			}
 			const collected = this.matching().filter((annotation) => !skipped.has(annotation.annotationKey));
-			const file = await vault.create(path, collectNote(collected, this.template.content, (annotation) => this.values(annotation)));
+			const file = await vault.create(path, collectNote(collected, this.template.content, (annotation) => templateValues(annotation, this.paper, templateOptions(this.link))));
 
 			const view = this.plugin.data.view;
 			view.collect = {
@@ -285,9 +267,4 @@ function colorOf(annotation: Annotation): string {
 
 function colorId(hex: string): string {
 	return ANNOTATION_COLORS.find((color) => color.hex === hex)?.id ?? hex;
-}
-
-function colorName(hex: string): string {
-	const id = colorId(hex);
-	return t.annotationColorNames[id] ?? hex;
 }

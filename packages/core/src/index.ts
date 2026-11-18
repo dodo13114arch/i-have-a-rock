@@ -9,3 +9,7 @@ export * from "./pdf-position";
 export * from "./citation-format";
 export * from "./annotation-draft";
 export * from "./annotation-collection";
+export * from "./annotation-template";
+export * from "./floating-placement";
+export * from "./template-name";
+export * from "./link-click";

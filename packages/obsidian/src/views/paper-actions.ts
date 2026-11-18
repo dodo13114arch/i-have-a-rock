@@ -8,6 +8,7 @@ import { DROP_MIME, type DropPayload } from "../features/editor-actions";
 import { t } from "../i18n";
 import type RockPlugin from "../main";
 import { copyCitationFrom, copyToClipboard } from "./clipboard";
+import { openUrl } from "../features/open-guard";
 
 export interface PaperTitleOptions {
 	/** Items put first in the context menu (e.g. "Open paper"). */
@@ -65,7 +66,7 @@ export function bindPaperTitle(plugin: RockPlugin, title: HTMLElement, paper: Pa
 					.onClick(() => void plugin.openReader(paper.itemKey, attachment.itemKey, null)),
 			);
 		}
-		menu.addItem((item) => item.setTitle(t.openInZotero).setIcon("external-link").onClick(() => window.open(selectItemUri(paper.itemKey))));
+		menu.addItem((item) => item.setTitle(t.openInZotero).setIcon("external-link").onClick(() => openUrl(selectItemUri(paper.itemKey))));
 		menu.addSeparator();
 		menu.addItem((item) => item.setTitle(t.menuCopyZoteroLink).setIcon("link").onClick(() => copyToClipboard(formatPaperLink(paper))));
 		// Plain citations, formatted by Zotero in the style chosen in settings.

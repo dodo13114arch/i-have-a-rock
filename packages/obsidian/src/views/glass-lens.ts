@@ -38,6 +38,8 @@ export class GlassLens {
 	 * when not held.
 	 */
 	private heldFrom: HTMLElement | null | undefined = undefined;
+	/** Faded out while something is laid over the panel (search's results). */
+	private concealed = false;
 
 	/**
 	 * Puts the lens in `host` (after the host was rendered afresh) and places it
@@ -46,7 +48,7 @@ export class GlassLens {
 	attach(host: HTMLElement, target: HTMLElement | null): void {
 		this.host = host;
 		host.addClass("rock-glass-host");
-		this.lens = host.createDiv({ cls: "rock-glass-lens" });
+		this.lens = host.createDiv({ cls: ["rock-glass", "rock-glass-lens"] });
 		this.box = null;
 		this.setTarget(target);
 		this.place(false);
@@ -102,8 +104,33 @@ export class GlassLens {
 		this.follow();
 	}
 
+	/**
+	 * Fades the lens out while search is in use: its results push the page
+	 * down without resizing the host or the target, so the glass would stay
+	 * where the selection was, over them. Shown again, it is placed on the
+	 * selection afresh, where that is laid out now.
+	 */
+	conceal(concealed: boolean): void {
+		const lens = this.lens;
+		if (concealed === this.concealed || !lens) return;
+		this.concealed = concealed;
+		for (const animation of lens.getAnimations()) animation.cancel();
+		lens.toggleClass("is-concealed", concealed);
+		const shown = lens.hasClass("is-shown");
+		if (!concealed) {
+			// Never the box from before: the page may have moved since.
+			this.box = null;
+			this.place(false);
+		}
+		if (!shown && !lens.hasClass("is-shown")) return;
+		if (reducedMotion()) return;
+		const keyframes = concealed ? [{ opacity: 1 }, { opacity: 0 }] : [{ opacity: 0 }, { opacity: 1 }];
+		lens.animate(keyframes, { duration: concealed ? 100 : 160, easing: "ease-out" });
+	}
+
 	detach(): void {
 		this.resize.disconnect();
+		this.concealed = false;
 		this.lens?.remove();
 		this.lens = null;
 		this.host = null;
@@ -114,8 +141,11 @@ export class GlassLens {
 	private setTarget(target: HTMLElement | null): void {
 		this.resize.disconnect();
 		this.target = target;
-		// The host too: things above the target growing or shrinking move it.
-		if (this.host) this.resize.observe(this.host);
+		// The host and its rows too: things above the target growing or shrinking move it.
+		if (this.host) {
+			this.resize.observe(this.host);
+			for (const row of Array.from(this.host.children)) if (row !== this.lens) this.resize.observe(row);
+		}
 		if (target) this.resize.observe(target);
 	}
 
@@ -167,6 +197,8 @@ export class GlassLens {
 	private place(animate: boolean, springs: Springs = { lead: LEAD_RESPONSE, trail: TRAIL_RESPONSE }): void {
 		const lens = this.lens;
 		if (!lens) return;
+		// Hidden, it moves at once: an animation would show it through.
+		if (this.concealed) animate = false;
 		const to = this.measure();
 		const from = this.box;
 		this.box = to;

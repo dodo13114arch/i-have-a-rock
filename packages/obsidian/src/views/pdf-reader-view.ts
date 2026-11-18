@@ -12,6 +12,7 @@ import type RockPlugin from "../main";
 import { errorMessage, pageColors } from "../settings";
 import { AnnotationTools } from "./annotation-tools";
 import { PdfPages } from "./pdf-pages";
+import { openUrl } from "../features/open-guard";
 
 export const READER_VIEW_TYPE = "i-have-a-rock-reader";
 
@@ -233,6 +234,8 @@ export class PdfReaderView extends ItemView {
 		if (!paper) return;
 		if (annotation.comment) setTooltip(el, annotation.comment, { delay: 300 });
 		el.draggable = true;
+		// A drag may follow: a template file changed outside Obsidian is read by then.
+		el.addEventListener("pointerdown", () => this.plugin.templates.refreshIfStale());
 		el.addEventListener("dragstart", (event) => {
 			if (!event.dataTransfer) return;
 			const payload = this.plugin.editorActions.dragPayload(annotation, paper);
@@ -246,7 +249,7 @@ export class PdfReaderView extends ItemView {
 		const { attachmentKey } = this.state;
 		if (!attachmentKey) return;
 		const page = (this.pages?.position().pageIndex ?? 0) + 1;
-		window.open(openPdfUri(attachmentKey, { page }));
+		openUrl(openPdfUri(attachmentKey, { page }));
 	}
 
 	private message(text: string): void {

@@ -1,11 +1,10 @@
 import { homedir } from "os";
 import { join } from "path";
 import { type App, Notice, PluginSettingTab, type SettingDefinitionItem } from "obsidian";
-import { type AnnotationOrder, ZoteroError } from "@i-have-a-rock/core";
+import { type AnnotationOrder, DEFAULT_INSERT_TEMPLATE, type LinkClick, resolveInsertTemplate, resolveLinkClick, ZoteroError } from "@i-have-a-rock/core";
 import { type Language, LANGUAGE_NAMES, setLanguage, t } from "./i18n";
 import type RockPlugin from "./main";
-
-export type InsertFormat = "link" | "quote";
+import { renderFormatSetting } from "./views/format-setting";
 
 /** The PDF page's colors, as Zotero's reader themes: "original" leaves the PDF as it is. */
 export type PageTheme = "original" | "snow" | "sepia" | "custom";
@@ -40,8 +39,18 @@ export interface RockSettings {
 	autoFollow: boolean;
 	/** Tooltips that explain what can be done (drag, Space, double-click…), for those new to the plugin. */
 	showHints: boolean;
-	/** "link": inline [text](zotero://…); "quote": blockquote with citation line. */
-	insertFormat: InsertFormat;
+	/** The template id a single dragged or inserted annotation is written with ("builtin:link", "file:Mine"…). */
+	insertTemplate: string;
+	/** Whether the user picked `insertTemplate`; if not, it follows the default. */
+	insertTemplateChosen: boolean;
+	/**
+	 * "preview": a preview card by the Zotero link (annotation or paper) the
+	 * caret rests on, opening Quick Look, and plain clicks on personal-library
+	 * links put the caret there (or show the card) instead of opening Zotero.
+	 * "none": clicks are caught the same way, and there is no card.
+	 * "zotero": clicks open Zotero, and there is no card.
+	 */
+	linkClick: LinkClick;
 	/** Seconds between change checks while the panel is open; 0 disables. */
 	pollSeconds: number;
 	zoteroDataDir: string;
@@ -94,7 +103,9 @@ export const DEFAULT_SETTINGS: RockSettings = {
 	language: "auto",
 	autoFollow: true,
 	showHints: true,
-	insertFormat: "link",
+	insertTemplate: DEFAULT_INSERT_TEMPLATE,
+	insertTemplateChosen: false,
+	linkClick: "preview",
 	pollSeconds: 10,
 	zoteroDataDir: join(homedir(), "Zotero"),
 	imageFolder: "",
@@ -109,6 +120,23 @@ export const DEFAULT_SETTINGS: RockSettings = {
 	citationStyle: "apa",
 	citationLocale: "auto",
 };
+
+/**
+ * Settings as stored, brought up to date. All settings are saved together,
+ * defaults included, so only a format that differs from what was then the
+ * default counts as chosen (see resolveInsertTemplate); `insertFormat`, from
+ * before templates, is dropped; so is `hoverPreview`, from when the card had
+ * its own switch (see resolveLinkClick).
+ */
+export function migrateSettings(stored: Partial<RockSettings> & { insertFormat?: unknown; hoverPreview?: unknown } = {}): RockSettings {
+	const { insertFormat, hoverPreview, ...rest } = stored;
+	return {
+		...DEFAULT_SETTINGS,
+		...rest,
+		...resolveInsertTemplate({ ...rest, insertFormat }),
+		linkClick: resolveLinkClick({ hoverPreview, linkClick: rest.linkClick }),
+	};
+}
 
 /** Unsaved edits to a Zotero note, kept until saved or discarded. */
 export interface NoteDraft {
@@ -166,7 +194,7 @@ export class RockSettingTab extends PluginSettingTab {
 		if (key === "language") settings.language = value === "en" || value === "zh-TW" ? value : "auto";
 		if (key === "autoFollow") settings.autoFollow = value === true;
 		if (key === "showHints") settings.showHints = value === true;
-		if (key === "insertFormat") settings.insertFormat = value === "quote" ? "quote" : "link";
+		if (key === "linkClick") settings.linkClick = resolveLinkClick({ linkClick: value });
 		if (key === "pollSeconds") settings.pollSeconds = Number(value);
 		if (key === "zoteroDataDir") settings.zoteroDataDir = String(value).trim() || DEFAULT_SETTINGS.zoteroDataDir;
 		if (key === "imageFolder") settings.imageFolder = String(value).trim();
@@ -188,6 +216,7 @@ export class RockSettingTab extends PluginSettingTab {
 			if (key === "pageTheme") this.update();
 		}
 		if (key === "showHints") for (const view of this.plugin.getViews()) view.rebuild();
+		if (key === "linkClick" && settings.linkClick !== "preview") this.plugin.linkPreview.hide();
 		if (key === "language") {
 			setLanguage(settings.language);
 			for (const view of this.plugin.getViews()) view.rebuild();
@@ -245,18 +274,19 @@ export class RockSettingTab extends PluginSettingTab {
 				],
 			},
 			{
-				name: t.settingsInsertFormat,
-				desc: t.settingsInsertFormatDesc,
-				control: {
-					type: "dropdown",
-					key: "insertFormat",
-					options: { link: t.settingsInsertFormatLink, quote: t.settingsInsertFormatQuote },
-				},
+				name: t.settingsInsertTemplate,
+				desc: t.settingsInsertTemplateDesc,
+				render: (setting) => renderFormatSetting(this.plugin, setting),
 			},
 			{
 				name: t.settingsAutoFollow,
 				desc: t.settingsAutoFollowDesc,
 				control: { type: "toggle", key: "autoFollow" },
+			},
+			{
+				name: t.settingsLinkClick,
+				desc: t.settingsLinkClickDesc,
+				control: { type: "dropdown", key: "linkClick", options: { preview: t.linkClickPreview, none: t.linkClickNone, zotero: t.linkClickZotero } },
 			},
 			{
 				name: t.settingsShowHints,

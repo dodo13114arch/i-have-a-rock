@@ -21,6 +21,7 @@ import { errorMessage } from "../settings";
 import { copyToClipboard } from "./clipboard";
 import { confirm } from "./modals";
 import type { PdfPages } from "./pdf-pages";
+import { openUrl } from "../features/open-guard";
 
 export type ReaderTool = "select" | "highlight" | "underline" | "area";
 
@@ -490,7 +491,7 @@ export class AnnotationTools {
 				.setSection("open")
 				.setTitle(t.openInZotero)
 				.setIcon("external-link")
-				.onClick(() => window.open(annotation.zoteroUrl)),
+				.onClick(() => openUrl(annotation.zoteroUrl)),
 		);
 		menu.addItem((item) =>
 			item

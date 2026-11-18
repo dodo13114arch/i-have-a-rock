@@ -66,9 +66,20 @@ function lastName(creator: NonNullable<RawItemData["creators"]>[number]): string
 	return creator.lastName || creator.name || creator.firstName || "";
 }
 
-export function summarizeCreators(creators: RawItemData["creators"], conjunction = "and"): string | undefined {
+/** The authors, or every creator when none is an author (an edited book). */
+function citedCreators(creators: RawItemData["creators"]): NonNullable<RawItemData["creators"]> {
 	const authors = (creators ?? []).filter((c) => !c.creatorType || c.creatorType === "author");
-	const list = authors.length ? authors : creators ?? [];
+	return authors.length ? authors : (creators ?? []);
+}
+
+/** The first author's last name, or the first creator's; undefined when there is none. */
+export function firstAuthorOf(creators: RawItemData["creators"]): string | undefined {
+	const first = citedCreators(creators)[0];
+	return (first && lastName(first).trim()) || undefined;
+}
+
+export function summarizeCreators(creators: RawItemData["creators"], conjunction = "and"): string | undefined {
+	const list = citedCreators(creators);
 	if (list.length === 0) return undefined;
 	if (list.length === 1) return lastName(list[0]!);
 	if (list.length === 2) return `${lastName(list[0]!)} ${conjunction} ${lastName(list[1]!)}`;
@@ -96,6 +107,7 @@ export function mapPaperSummary(item: RawItem): PaperSummary {
 		authors: (data.creators ?? []).map(authorName).filter(Boolean),
 		creatorSummary: item.meta?.creatorSummary || summarizeCreators(data.creators),
 		citationAuthors: summarizeCreators(data.creators, "&"),
+		firstAuthor: firstAuthorOf(data.creators),
 		year: yearOf(item),
 		doi: doiOf(data),
 		version: item.version,

@@ -20,6 +20,8 @@ export interface PaperSummary {
 	creatorSummary?: string;
 	/** APA in-text authors: "Smith", "Smith & Chen", "Smith et al." */
 	citationAuthors?: string;
+	/** The first author's last name (a single-field name as it is): "Smith". */
+	firstAuthor?: string;
 	year?: string;
 	doi?: string;
 	version: number;

@@ -13,6 +13,7 @@ import {
 	extractZoteroLinks,
 	ZoteroError,
 } from "@i-have-a-rock/core";
+import { moveCaretQuietly } from "../features/link-preview-bubble";
 import { t } from "../i18n";
 import { ROCK_ICON } from "../icon";
 import type RockPlugin from "../main";
@@ -233,6 +234,9 @@ export class RockView extends ItemView {
 
 		this.bannerEl = root.createDiv({ cls: "rock-banner" });
 		this.searchInput.addEventListener("input", () => this.runSearch(this.searchInput.value));
+		// The selection's glass would float over search's results: out of the way while search is in use.
+		this.searchInput.addEventListener("focus", () => this.concealLens());
+		this.searchInput.addEventListener("blur", () => this.concealLens());
 		this.searchInput.addEventListener("keydown", (event) => {
 			if (event.key === "Escape") this.toggleSearch(false);
 			if (event.key === "Enter") this.resultsEl.querySelector<HTMLElement>(".rock-result")?.click();
@@ -291,6 +295,13 @@ export class RockView extends ItemView {
 		unfoldRow(this.searchEl, open, below, this.searchInput, "scaleX(0)", this.lens);
 		if (open) this.searchInput.focus();
 		else this.clearSearch();
+		this.concealLens();
+	}
+
+	/** Hides the selection's glass while search is focused or shows results; shows it again after. */
+	private concealLens(): void {
+		const focused = this.searchInput.ownerDocument.activeElement === this.searchInput;
+		this.lens.conceal(this.searchEl.isShown() && (focused || this.resultsEl.hasChildNodes()));
 	}
 
 	/**
@@ -534,8 +545,11 @@ export class RockView extends ItemView {
 		if (!(view instanceof MarkdownView)) return;
 		if (view.getMode() === "source") {
 			const from = { line: link.line, ch: link.from };
-			view.editor.setCursor(from);
-			view.editor.scrollIntoView({ from, to: { line: link.line, ch: link.to } }, true);
+			// Gone to from the panel: no link card for it.
+			moveCaretQuietly(() => {
+				view.editor.setCursor(from);
+				view.editor.scrollIntoView({ from, to: { line: link.line, ch: link.to } }, true);
+			});
 		} else {
 			view.setEphemeralState({ line: link.line });
 		}
@@ -587,12 +601,14 @@ export class RockView extends ItemView {
 	private clearSearch(): void {
 		this.searchInput.value = "";
 		this.resultsEl.empty();
+		this.concealLens();
 	}
 
 	private async search(query: string): Promise<void> {
 		query = query.trim();
 		if (!query) {
 			this.resultsEl.empty();
+			this.concealLens();
 			return;
 		}
 		this.resultsEl.empty();
