@@ -65,6 +65,8 @@ const LINK_IN_TEXT =
 
 export interface ZoteroLinkMatch {
 	uri: ParsedZoteroUri;
+	/** The URI as written. */
+	url: string;
 	/** Link text for [text](uri) links, unescaped. */
 	text?: string;
 	/** Column range of the whole link within its line. */
@@ -76,10 +78,11 @@ export interface ZoteroLinkMatch {
 export function findZoteroLinks(line: string): ZoteroLinkMatch[] {
 	const links: ZoteroLinkMatch[] = [];
 	for (const match of line.matchAll(LINK_IN_TEXT)) {
-		const uri = parseZoteroUri(match[2] ?? match[3] ?? match[4] ?? "");
+		const url = match[2] ?? match[3] ?? match[4] ?? "";
+		const uri = parseZoteroUri(url);
 		if (!uri) continue;
 		const text = match[1]?.replace(/\\([\\[\]])/g, "$1");
-		links.push({ uri, text, from: match.index, to: match.index + match[0].length });
+		links.push({ uri, url, text, from: match.index, to: match.index + match[0].length });
 	}
 	return links;
 }
@@ -90,6 +93,20 @@ export function findZoteroLinks(line: string): ZoteroLinkMatch[] {
  */
 export function findZoteroUriAt(line: string, column: number): ParsedZoteroUri | null {
 	return findZoteroLinks(line).find((link) => column >= link.from && column <= link.to)?.uri ?? null;
+}
+
+/** A Markdown image ![…](…), as (part of) a link's text. */
+const IMAGE_IN_TEXT = /!\[[^\]]*\]\([^)]*\)/;
+
+/**
+ * The Zotero link around an image, [![…](…)](zotero://…), at a column of a
+ * line: where an editor shows the image in its place. A link of text
+ * alone, even right next to an image, is not it.
+ */
+export function findImageLinkAt(line: string, column: number): ZoteroLinkMatch | null {
+	return (
+		findZoteroLinks(line).find((link) => column >= link.from && column < link.to && link.text !== undefined && IMAGE_IN_TEXT.test(link.text)) ?? null
+	);
 }
 
 export interface NoteZoteroLink extends ZoteroLinkMatch {

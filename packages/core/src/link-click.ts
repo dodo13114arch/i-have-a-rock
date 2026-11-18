@@ -114,3 +114,15 @@ export function caretMoveOutcome(
 	if (onCardLink) return { card: "keep", show: "never" };
 	return { card: "hide", show: caretCardTiming(userEvents, false) };
 }
+
+/**
+ * What a plain click on an image linked to a library item does: what a click
+ * on a text link does with the same setting. "open": Zotero opens, which
+ * the plugin does itself, since the image's own click (Obsidian's image
+ * viewer) is kept from happening; "card": its card comes up, by the image;
+ * "nothing": nothing at all.
+ */
+export function imageClickAction(settings: LinkClickSettings): "open" | "card" | "nothing" {
+	if (!catchesLinkClicks(settings)) return "open";
+	return showsLinkCards(settings) ? "card" : "nothing";
+}

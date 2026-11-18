@@ -9,7 +9,7 @@ import { join } from "path";
 import { fileURLToPath } from "url";
 import { loadPdfJs } from "obsidian";
 import type * as PdfJsLib from "pdfjs-dist";
-import { type Annotation, annotationGeometry, boundingRect, DEFAULT_BASE_URL, pathBounds, pageTopRect, type PdfRect, thumbnailRect } from "@i-have-a-rock/core";
+import { annotationGeometry, boundingRect, DEFAULT_BASE_URL, type PdfRect } from "@i-have-a-rock/core";
 import type RockPlugin from "../main";
 import { type PageColors, pageColors } from "../settings";
 
@@ -28,14 +28,6 @@ export const PAGE_GAP = 12;
 export const PAGES_PADDING = 16;
 /** A pre-rendered page is used when its width is within this fraction of what is needed. */
 const WIDTH_TOLERANCE = 0.04;
-/**
- * How much of the page a thumbnail shows, in PDF points: the annotation with
- * a sixth of an inch of page around it, at least about a quarter of a letter
- * or A4 page's width (a few lines of a paragraph), at most about two fifths
- * of it, so that in the small link card (about 112×56 px under its label)
- * the annotation is clear and its text still reads as lines.
- */
-const THUMBNAIL_LIMITS = { padding: 12, minWidth: 140, maxWidth: 240 };
 
 export interface PdfHandle {
 	lib: PdfJs;
@@ -219,48 +211,11 @@ export class PdfDocuments {
 		return this.renderArea(attachmentKey, geometry.pageIndex, () => ({ area: bounds, scale }));
 	}
 
-	/**
-	 * The page around an annotation, `width` × `height` pixels, with the
-	 * annotation marked in its color: the link card's thumbnail. Zotero
-	 * keeps annotations out of the PDF, so unmarked it would be plain text.
-	 * Null when it has no position.
-	 */
-	async renderThumbnail(annotation: Annotation, width: number, height: number): Promise<HTMLCanvasElement | null> {
-		const geometry = annotationGeometry(annotation.position);
-		const bounds = boundingRect(geometry?.rects ?? []) ?? pathBounds(geometry?.paths ?? []);
-		if (!geometry || !bounds) return null;
-		return this.renderArea(
-			annotation.attachmentKey,
-			geometry.pageIndex,
-			(view) => {
-				const area = thumbnailRect(bounds, view, THUMBNAIL_LIMITS, width / height);
-				return { area, scale: width / (area[2] - area[0]) };
-			},
-			(context, toCanvas, scale) => markAnnotation(context, annotation, geometry.rects.map(toCanvas), scale),
-		);
-	}
-
-	/**
-	 * The top of a page, its full width, `width` × `height` pixels: the link
-	 * card's thumbnail for a whole paper (or a page of it).
-	 */
-	async renderPageTop(attachmentKey: string, pageIndex: number, width: number, height: number): Promise<HTMLCanvasElement | null> {
-		return this.renderArea(attachmentKey, pageIndex, (view) => {
-			const area = pageTopRect(view, width / height);
-			return { area, scale: width / (area[2] - area[0]) };
-		});
-	}
-
-	/**
-	 * Draws an area of a page (in PDF points), at a scale; both worked out from
-	 * the page's box. `mark` then draws over it, given how to place PDF
-	 * rectangles on the canvas.
-	 */
+	/** Draws an area of a page (in PDF points), at a scale; both worked out from the page's box. */
 	private async renderArea(
 		attachmentKey: string,
 		pageIndex: number,
 		areaOf: (view: PdfRect) => { area: PdfRect; scale: number },
-		mark?: (context: CanvasRenderingContext2D, toCanvas: (rect: PdfRect) => CanvasRect, scale: number) => void,
 	): Promise<HTMLCanvasElement | null> {
 		const handle = await this.open(attachmentKey);
 		try {
@@ -277,14 +232,6 @@ export class PdfDocuments {
 			if (!context) return null;
 			// The page shifted so the area's corner is at the canvas's.
 			await page.render({ canvasContext: context, viewport, transform: [1, 0, 0, 1, -left, -top] }).promise;
-			mark?.(
-				context,
-				(rect) => {
-					const [a, b, c, d] = viewport.convertToViewportRectangle(rect) as number[];
-					return { x: Math.min(a!, c!) - left, y: Math.min(b!, d!) - top, width: Math.abs(c! - a!), height: Math.abs(d! - b!) };
-				},
-				scale,
-			);
 			return canvas;
 		} finally {
 			handle.release();
@@ -425,39 +372,5 @@ export function tintPage(context: CanvasRenderingContext2D, colors: PageColors):
 	context.globalCompositeOperation = "multiply";
 	context.fillStyle = colors.background;
 	context.fillRect(0, 0, width, height);
-	context.restore();
-}
-
-interface CanvasRect {
-	x: number;
-	y: number;
-	width: number;
-	height: number;
-}
-
-/** Zotero's yellow, for annotations without a color. */
-const DEFAULT_MARK_COLOR = "#ffd400";
-
-/**
- * The annotation drawn over its page as Zotero shows it: a highlight (or note)
- * in its color, an underline under the text, an area outlined.
- */
-function markAnnotation(context: CanvasRenderingContext2D, annotation: Annotation, rects: CanvasRect[], scale: number): void {
-	context.save();
-	const color = annotation.color ?? DEFAULT_MARK_COLOR;
-	context.fillStyle = color;
-	context.strokeStyle = color;
-	if (annotation.type === "underline") {
-		const thickness = Math.max(2, scale * 1.5);
-		for (const rect of rects) context.fillRect(rect.x, rect.y + rect.height - thickness, rect.width, thickness);
-	} else if (annotation.type === "image") {
-		context.lineWidth = Math.max(2, scale * 1.5);
-		for (const rect of rects) context.strokeRect(rect.x, rect.y, rect.width, rect.height);
-	} else {
-		// Multiplied, so the text under it stays dark.
-		context.globalAlpha = 0.45;
-		context.globalCompositeOperation = "multiply";
-		for (const rect of rects) context.fillRect(rect.x, rect.y, rect.width, rect.height);
-	}
 	context.restore();
 }
